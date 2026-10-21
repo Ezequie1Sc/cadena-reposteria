@@ -11,8 +11,13 @@ router = APIRouter(
 )
 
 
-@router.get("")
+@router.get(
+    "",
+    operation_id="listar_roles_activos",
+    summary="Listar roles activos",
+)
 def get_roles():
+    """Obtiene los roles activos registrados en Supabase."""
     try:
         response = (
             supabase.table("roles")
