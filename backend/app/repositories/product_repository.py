@@ -1,56 +1,119 @@
 
-from typing import Any
+from datetime import datetime, timezone
 
-from postgrest.exceptions import APIError
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.supabase import supabase
+from app.models.product import Product
+from app.schemas.product import ProductCreate, ProductUpdate
 
 
 class ProductRepository:
-    """Gestiona el acceso a productos almacenados en Supabase."""
+    """Operaciones de acceso a datos para productos."""
 
     def get_all(
         self,
+        db: Session,
         busqueda: str | None = None,
         categoria_id: int | None = None,
         solo_activos: bool = True,
-    ) -> list[dict[str, Any]]:
-        query = supabase.table("productos").select(
-            "id, categoria_id, nombre, descripcion, sku, "
-            "precio, imagen_url, activo, created_at, updated_at"
-        )
+    ) -> list[Product]:
+        query = select(Product)
 
         if solo_activos:
-            query = query.eq("activo", True)
+            query = query.where(Product.activo.is_(True))
 
         if busqueda:
             termino = busqueda.strip()
+
             if termino:
-                query = query.ilike("nombre", f"%{termino}%")
+                query = query.where(
+                    Product.nombre.ilike(f"%{termino}%")
+                )
 
         if categoria_id is not None:
-            query = query.eq("categoria_id", categoria_id)
+            query = query.where(
+                Product.categoria_id == categoria_id
+            )
 
-        response = query.order("nombre").execute()
+        query = query.order_by(Product.nombre)
 
-        return response.data
+        return list(db.scalars(query).all())
 
     def get_by_id(
         self,
+        db: Session,
         product_id: int,
-    ) -> dict[str, Any] | None:
-        response = (
-            supabase.table("productos")
-            .select(
-                "id, categoria_id, nombre, descripcion, sku, "
-                "precio, imagen_url, activo, created_at, updated_at"
-            )
-            .eq("id", product_id)
-            .limit(1)
-            .execute()
+    ) -> Product | None:
+        return db.get(Product, product_id)
+
+    def get_by_sku(
+        self,
+        db: Session,
+        sku: str,
+    ) -> Product | None:
+        query = select(Product).where(
+            Product.sku == sku
         )
 
-        return response.data[0] if response.data else None
+        return db.scalar(query)
+
+    def create(
+        self,
+        db: Session,
+        data: ProductCreate,
+    ) -> Product:
+        product = Product(**data.model_dump())
+
+        db.add(product)
+        db.flush()
+        db.refresh(product)
+
+        return product
+
+    def update(
+        self,
+        db: Session,
+        product: Product,
+        data: ProductUpdate,
+    ) -> Product:
+        changes = data.model_dump(exclude_unset=True)
+
+        for field, value in changes.items():
+            setattr(product, field, value)
+
+        if changes:
+            product.updated_at = datetime.now(timezone.utc)
+            db.flush()
+            db.refresh(product)
+
+        return product
+
+    def deactivate(
+        self,
+        db: Session,
+        product: Product,
+    ) -> Product:
+        product.activo = False
+        product.updated_at = datetime.now(timezone.utc)
+
+        db.flush()
+        db.refresh(product)
+
+        return product
+
+    def reactivate(
+        self,
+        db: Session,
+        product: Product,
+    ) -> Product:
+        product.activo = True
+        product.updated_at = datetime.now(timezone.utc)
+
+        db.flush()
+        db.refresh(product)
+
+        return product
 
 
 product_repository = ProductRepository()
