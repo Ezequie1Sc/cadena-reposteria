@@ -7,8 +7,12 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
 
-    supabase_url: str
-    supabase_key: str
+    # Conexión directa a PostgreSQL
+    database_url: str
+
+    # Cliente Supabase existente
+    supabase_url: str | None = None
+    supabase_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
