@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -27,7 +28,7 @@ class Product(Base):
     __tablename__ = "productos"
 
     id: Mapped[int] = mapped_column(
-        BigInteger,
+        BigInteger().with_variant(Integer, "sqlite"),
         primary_key=True,
         autoincrement=True,
     )
