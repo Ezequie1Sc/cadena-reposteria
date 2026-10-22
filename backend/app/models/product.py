@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -25,7 +26,16 @@ if TYPE_CHECKING:
 
 
 class Product(Base):
+    """Modelo de productos de la cadena de repostería."""
+
     __tablename__ = "productos"
+
+    __table_args__ = (
+        Index(
+            "idx_productos_categoria",
+            "categoria_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         BigInteger().with_variant(Integer, "sqlite"),
