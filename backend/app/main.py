@@ -4,10 +4,10 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.api.routes.health import router as health_router
 from app.api.routes.roles import router as roles_router
-from app.api.routes.products import router as products_router
-from app.api.routes.categories import router as categories_router
-from app.api.routes.branches import router as branches_router
-from app.api.routes.customers import router as customers_router
+from app.modules.products.routes import router as products_router
+from app.modules.categories.routes import router as categories_router
+from app.modules.branches.routes import router as branches_router
+from app.modules.customers.routes import router as customers_router
 
 
 app = FastAPI(
