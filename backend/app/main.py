@@ -7,6 +7,7 @@ from app.api.routes.roles import router as roles_router
 from app.api.routes.products import router as products_router
 from app.api.routes.categories import router as categories_router
 from app.api.routes.branches import router as branches_router
+from app.api.routes.customers import router as customers_router
 
 
 app = FastAPI(
@@ -25,6 +26,7 @@ app.include_router(roles_router)
 app.include_router(products_router)
 app.include_router(categories_router)
 app.include_router(branches_router)
+app.include_router(customers_router)
 
 
 @app.get("/", tags=["Inicio"])
