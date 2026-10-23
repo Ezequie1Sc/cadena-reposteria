@@ -19,7 +19,7 @@ from alembic import context
 from app.db.session import Base, engine
 
 # Registrar los modelos ORM y las tablas de referencia.
-import app.models  # noqa: F401
+import app.db.models  # noqa: F401
 
 
 config = context.config
