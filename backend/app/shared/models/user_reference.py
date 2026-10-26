@@ -1,22 +1,13 @@
+"""Alias de compatibilidad para la tabla de usuarios.
 
-"""Referencia a la tabla existente de usuarios.
+Permite que los módulos existentes de clientes y empleados
+continúen utilizando users_reference.c.id.
 
-Permite resolver la clave foránea clientes.usuario_id
-sin implementar todavía el modelo completo de usuarios.
+La definición completa de la tabla usuarios pertenece
+al modelo User.
 """
 
-from sqlalchemy import BigInteger, Column, Table
-
-from app.db.session import Base
+from app.modules.users.model import User
 
 
-users_reference = Table(
-    "usuarios",
-    Base.metadata,
-    Column(
-        "id",
-        BigInteger,
-        primary_key=True,
-    ),
-    info={"reference_only": True},
-)
+users_reference = User.__table__

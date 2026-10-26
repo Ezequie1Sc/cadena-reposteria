@@ -5,7 +5,10 @@ from app.modules.categories.model import Category
 from app.modules.customers.model import Customer
 from app.modules.employees.model import Employee
 from app.modules.products.model import Product
+from app.shared.models.role_reference import roles_reference
+from app.modules.users.model import User
 from app.shared.models.user_reference import users_reference
+
 
 __all__ = [
     "Branch",
@@ -13,5 +16,7 @@ __all__ = [
     "Customer",
     "Employee",
     "Product",
+    "User",
+    "roles_reference",
     "users_reference",
 ]
