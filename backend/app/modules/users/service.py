@@ -2,11 +2,12 @@
 """Lógica de negocio para la administración de usuarios."""
 
 from fastapi import HTTPException
-from sqlalchemy import Boolean, column, select, table
+from sqlalchemy import Boolean, column, func, select, table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
+from app.modules.users.model import User
 from app.modules.users.repository import user_repository
 from app.modules.users.schemas import (
     UserCreate,
@@ -16,18 +17,20 @@ from app.modules.users.schemas import (
 from app.shared.models.role_reference import roles_reference
 
 
+ADMIN_ROLE_ID = 1
+
+
 class UserService:
     """Servicio de operaciones y validaciones de usuarios."""
 
     @staticmethod
-    def _response(user) -> UserResponse:
+    def _response(user: User) -> UserResponse:
         """Convierte un usuario al esquema público."""
         return UserResponse.model_validate(user)
 
     @staticmethod
     def _validate_required_fields(changes: dict) -> None:
         """Impide asignar valores nulos a campos obligatorios."""
-
         required_fields = {
             "rol_id",
             "nombre",
@@ -47,7 +50,6 @@ class UserService:
     @staticmethod
     def _validate_role(db: Session, rol_id: int) -> None:
         """Comprueba que el rol exista y esté activo."""
-
         query = select(
             roles_reference.c.id
         ).where(
@@ -85,11 +87,7 @@ class UserService:
         exclude_user_id: int | None = None,
     ) -> None:
         """Evita registrar correos electrónicos duplicados."""
-
-        existing = user_repository.get_by_email(
-            db,
-            email,
-        )
+        existing = user_repository.get_by_email(db, email)
 
         if (
             existing is not None
@@ -98,6 +96,61 @@ class UserService:
             raise HTTPException(
                 status_code=409,
                 detail="Ya existe un usuario con este correo electrónico",
+            )
+
+    @staticmethod
+    def _validate_actor_id(actor_id: int) -> None:
+        """Exige la identidad del administrador autenticado."""
+        if (
+            isinstance(actor_id, bool)
+            or not isinstance(actor_id, int)
+            or actor_id <= 0
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Se requiere un administrador autenticado",
+            )
+
+    @staticmethod
+    def _lock_admin_role(db: Session) -> None:
+        """
+        Bloquea la fila del rol Administrador durante la transacción.
+
+        PostgreSQL mantiene el bloqueo hasta COMMIT o ROLLBACK.
+        SQLite no implementa SELECT FOR UPDATE; allí se verifican
+        las reglas funcionales, pero no la garantía de concurrencia.
+        """
+        query = (
+            select(roles_reference.c.id)
+            .where(roles_reference.c.id == ADMIN_ROLE_ID)
+            .with_for_update()
+        )
+
+        if db.scalar(query) is None:
+            raise HTTPException(
+                status_code=409,
+                detail="El rol Administrador no existe",
+            )
+
+    @staticmethod
+    def _validate_admin_removal(db: Session) -> None:
+        """Impide dejar al sistema sin administradores activos."""
+        active_admins = db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.rol_id == ADMIN_ROLE_ID,
+                User.activo.is_(True),
+            )
+        )
+
+        if (active_admins or 0) <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "No se puede retirar al último "
+                    "administrador activo"
+                ),
             )
 
     def get_users(
@@ -111,7 +164,6 @@ class UserService:
         page_size: int = 20,
     ) -> dict:
         """Obtiene usuarios con filtros y paginación."""
-
         if page < 1:
             raise HTTPException(
                 status_code=422,
@@ -164,11 +216,7 @@ class UserService:
         user_id: int,
     ) -> UserResponse:
         """Obtiene un usuario por identificador."""
-
-        user = user_repository.get_by_id(
-            db,
-            user_id,
-        )
+        user = user_repository.get_by_id(db, user_id)
 
         if user is None:
             raise HTTPException(
@@ -183,22 +231,12 @@ class UserService:
         db: Session,
         data: UserCreate,
     ) -> UserResponse:
-        """Registra un usuario con contraseña cifrada."""
-
+        """Registra un usuario con contraseña protegida."""
         try:
-            self._validate_role(
-                db,
-                data.rol_id,
-            )
+            self._validate_role(db, data.rol_id)
+            self._validate_unique_email(db, data.email)
 
-            self._validate_unique_email(
-                db,
-                data.email,
-            )
-
-            password_hash = hash_password(
-                data.password
-            )
+            password_hash = hash_password(data.password)
 
             user = user_repository.create(
                 db=db,
@@ -217,7 +255,6 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
-
             raise HTTPException(
                 status_code=409,
                 detail=(
@@ -235,14 +272,27 @@ class UserService:
         db: Session,
         user_id: int,
         data: UserUpdate,
+        *,
+        actor_id: int,
     ) -> UserResponse:
-        """Actualiza parcialmente los datos de un usuario."""
-
+        """Actualiza datos y protege los privilegios administrativos."""
         try:
-            user = user_repository.get_by_id(
-                db,
-                user_id,
-            )
+            self._validate_actor_id(actor_id)
+
+            changes = data.model_dump(exclude_unset=True)
+            self._validate_required_fields(changes)
+
+            requested_role = changes.get("rol_id")
+
+            # El bloqueo debe obtenerse antes de consultar el estado
+            # del administrador que podría perder sus privilegios.
+            if (
+                "rol_id" in changes
+                and requested_role != ADMIN_ROLE_ID
+            ):
+                self._lock_admin_role(db)
+
+            user = user_repository.get_by_id(db, user_id)
 
             if user is None:
                 raise HTTPException(
@@ -250,19 +300,28 @@ class UserService:
                     detail="Usuario no encontrado",
                 )
 
-            changes = data.model_dump(
-                exclude_unset=True
+            role_is_changing = (
+                "rol_id" in changes
+                and changes["rol_id"] != user.rol_id
             )
 
-            self._validate_required_fields(
-                changes
-            )
-
-            if "rol_id" in changes:
-                self._validate_role(
-                    db,
-                    changes["rol_id"],
+            if role_is_changing and user.id == actor_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "No puedes modificar tu propio "
+                        "rol administrativo"
+                    ),
                 )
+
+            if role_is_changing:
+                self._validate_role(db, changes["rol_id"])
+
+                if (
+                    user.rol_id == ADMIN_ROLE_ID
+                    and user.activo
+                ):
+                    self._validate_admin_removal(db)
 
             if "email" in changes:
                 self._validate_unique_email(
@@ -272,9 +331,7 @@ class UserService:
                 )
 
             if "password" in changes:
-                password = changes.pop(
-                    "password"
-                )
+                password = changes.pop("password")
 
                 if password is None:
                     raise HTTPException(
@@ -299,7 +356,6 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
-
             raise HTTPException(
                 status_code=409,
                 detail=(
@@ -316,14 +372,28 @@ class UserService:
         self,
         db: Session,
         user_id: int,
+        *,
+        actor_id: int,
     ) -> UserResponse:
-        """Desactiva un usuario sin eliminarlo físicamente."""
-
+        """Desactiva usuarios sin comprometer el acceso administrativo."""
         try:
-            user = user_repository.get_by_id(
-                db,
-                user_id,
-            )
+            self._validate_actor_id(actor_id)
+
+            if user_id == actor_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "No puedes desactivar "
+                        "tu propia cuenta"
+                    ),
+                )
+
+            # Todas las desactivaciones se serializan sobre el
+            # mismo rol para evitar decisiones concurrentes
+            # basadas en recuentos desactualizados.
+            self._lock_admin_role(db)
+
+            user = user_repository.get_by_id(db, user_id)
 
             if user is None:
                 raise HTTPException(
@@ -332,11 +402,10 @@ class UserService:
                 )
 
             if user.activo:
-                user = user_repository.deactivate(
-                    db,
-                    user,
-                )
+                if user.rol_id == ADMIN_ROLE_ID:
+                    self._validate_admin_removal(db)
 
+                user = user_repository.deactivate(db, user)
                 db.commit()
                 db.refresh(user)
 
@@ -344,7 +413,6 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
-
             raise HTTPException(
                 status_code=409,
                 detail="No se pudo desactivar el usuario",
@@ -360,12 +428,8 @@ class UserService:
         user_id: int,
     ) -> UserResponse:
         """Reactiva un usuario si su rol continúa activo."""
-
         try:
-            user = user_repository.get_by_id(
-                db,
-                user_id,
-            )
+            user = user_repository.get_by_id(db, user_id)
 
             if user is None:
                 raise HTTPException(
@@ -374,10 +438,7 @@ class UserService:
                 )
 
             if not user.activo:
-                self._validate_role(
-                    db,
-                    user.rol_id,
-                )
+                self._validate_role(db, user.rol_id)
 
                 user = user_repository.reactivate(
                     db,
@@ -391,7 +452,6 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
-
             raise HTTPException(
                 status_code=409,
                 detail="No se pudo reactivar el usuario",
