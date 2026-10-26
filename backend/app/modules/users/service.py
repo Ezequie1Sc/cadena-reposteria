@@ -2,7 +2,7 @@
 """Lógica de negocio para la administración de usuarios."""
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import Boolean, column, select, table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,7 @@ class UserService:
     @staticmethod
     def _validate_required_fields(changes: dict) -> None:
         """Impide asignar valores nulos a campos obligatorios."""
+
         required_fields = {
             "rol_id",
             "nombre",
@@ -59,10 +60,6 @@ class UserService:
                 detail="El rol indicado no existe",
             )
 
-        # La referencia SQLAlchemy solo contiene el ID.
-        # Consultamos el estado desde la tabla real.
-        from sqlalchemy import Boolean, column, table
-
         roles_table = table(
             "roles",
             column("id"),
@@ -94,7 +91,10 @@ class UserService:
             email,
         )
 
-        if existing is not None and existing.id != exclude_user_id:
+        if (
+            existing is not None
+            and existing.id != exclude_user_id
+        ):
             raise HTTPException(
                 status_code=409,
                 detail="Ya existe un usuario con este correo electrónico",
@@ -143,6 +143,7 @@ class UserService:
 
         total = user_repository.count(
             db=db,
+            busqueda=busqueda,
             rol_id=rol_id,
             solo_activos=solo_activos,
         )
@@ -164,7 +165,10 @@ class UserService:
     ) -> UserResponse:
         """Obtiene un usuario por identificador."""
 
-        user = user_repository.get_by_id(db, user_id)
+        user = user_repository.get_by_id(
+            db,
+            user_id,
+        )
 
         if user is None:
             raise HTTPException(
@@ -182,8 +186,19 @@ class UserService:
         """Registra un usuario con contraseña cifrada."""
 
         try:
-            self._validate_role(db, data.rol_id)
-            self._validate_unique_email(db, data.email)
+            self._validate_role(
+                db,
+                data.rol_id,
+            )
+
+            self._validate_unique_email(
+                db,
+                data.email,
+            )
+
+            password_hash = hash_password(
+                data.password
+            )
 
             user = user_repository.create(
                 db=db,
@@ -192,7 +207,7 @@ class UserService:
                 apellido=data.apellido,
                 email=data.email,
                 telefono=data.telefono,
-                password_hash=hash_password(data.password),
+                password_hash=password_hash,
             )
 
             db.commit()
@@ -202,9 +217,13 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
+
             raise HTTPException(
                 status_code=409,
-                detail="No se pudo registrar el usuario por un conflicto de datos",
+                detail=(
+                    "No se pudo registrar el usuario "
+                    "por un conflicto de datos"
+                ),
             ) from exc
 
         except Exception:
@@ -220,7 +239,10 @@ class UserService:
         """Actualiza parcialmente los datos de un usuario."""
 
         try:
-            user = user_repository.get_by_id(db, user_id)
+            user = user_repository.get_by_id(
+                db,
+                user_id,
+            )
 
             if user is None:
                 raise HTTPException(
@@ -228,12 +250,19 @@ class UserService:
                     detail="Usuario no encontrado",
                 )
 
-            changes = data.model_dump(exclude_unset=True)
+            changes = data.model_dump(
+                exclude_unset=True
+            )
 
-            self._validate_required_fields(changes)
+            self._validate_required_fields(
+                changes
+            )
 
             if "rol_id" in changes:
-                self._validate_role(db, changes["rol_id"])
+                self._validate_role(
+                    db,
+                    changes["rol_id"],
+                )
 
             if "email" in changes:
                 self._validate_unique_email(
@@ -243,7 +272,9 @@ class UserService:
                 )
 
             if "password" in changes:
-                password = changes.pop("password")
+                password = changes.pop(
+                    "password"
+                )
 
                 if password is None:
                     raise HTTPException(
@@ -251,7 +282,9 @@ class UserService:
                         detail="La contraseña no puede ser nula",
                     )
 
-                changes["password_hash"] = hash_password(password)
+                changes["password_hash"] = hash_password(
+                    password
+                )
 
             user = user_repository.update(
                 db=db,
@@ -266,9 +299,13 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
+
             raise HTTPException(
                 status_code=409,
-                detail="No se pudo actualizar el usuario por un conflicto de datos",
+                detail=(
+                    "No se pudo actualizar el usuario "
+                    "por un conflicto de datos"
+                ),
             ) from exc
 
         except Exception:
@@ -283,7 +320,10 @@ class UserService:
         """Desactiva un usuario sin eliminarlo físicamente."""
 
         try:
-            user = user_repository.get_by_id(db, user_id)
+            user = user_repository.get_by_id(
+                db,
+                user_id,
+            )
 
             if user is None:
                 raise HTTPException(
@@ -304,6 +344,7 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
+
             raise HTTPException(
                 status_code=409,
                 detail="No se pudo desactivar el usuario",
@@ -321,7 +362,10 @@ class UserService:
         """Reactiva un usuario si su rol continúa activo."""
 
         try:
-            user = user_repository.get_by_id(db, user_id)
+            user = user_repository.get_by_id(
+                db,
+                user_id,
+            )
 
             if user is None:
                 raise HTTPException(
@@ -330,7 +374,10 @@ class UserService:
                 )
 
             if not user.activo:
-                self._validate_role(db, user.rol_id)
+                self._validate_role(
+                    db,
+                    user.rol_id,
+                )
 
                 user = user_repository.reactivate(
                     db,
@@ -344,6 +391,7 @@ class UserService:
 
         except IntegrityError as exc:
             db.rollback()
+
             raise HTTPException(
                 status_code=409,
                 detail="No se pudo reactivar el usuario",
