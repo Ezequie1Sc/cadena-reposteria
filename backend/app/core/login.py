@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 
-from argon2.exceptions import VerificationError, VerifyMismatchError
+from argon2.exceptions import VerificationError
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,7 @@ class LoginResult:
 
 
 def invalid_credentials() -> HTTPException:
-    """Devuelve un error genérico para credenciales incorrectas."""
+    """Genera una respuesta uniforme de autenticación fallida."""
 
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,11 +41,11 @@ def authenticate_user(
     """
     Autentica un usuario mediante correo y contraseña.
 
-    Verifica:
-    - Existencia del usuario.
-    - Contraseña mediante Argon2id.
-    - Estado activo de la cuenta.
-    - Existencia y estado activo del rol.
+    Comprueba las credenciales y que tanto la cuenta
+    como su rol se encuentren activos.
+
+    No revela al cliente si una cuenta existe,
+    está desactivada o tiene un rol inválido.
     """
 
     normalized_email = email.strip().lower()
@@ -66,19 +66,19 @@ def authenticate_user(
             password,
             user.password_hash,
         )
-    except (VerificationError, VerifyMismatchError, ValueError):
+    except (VerificationError, ValueError):
         raise invalid_credentials() from None
 
     if not password_is_valid:
         raise invalid_credentials()
 
     if not user.activo:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="La cuenta de usuario está inactiva",
-        )
+        raise invalid_credentials()
 
-    validate_active_role(db, user.rol_id)
+    try:
+        validate_active_role(db, user.rol_id)
+    except HTTPException:
+        raise invalid_credentials() from None
 
     return user
 
@@ -89,12 +89,7 @@ def login_user(
     email: str,
     password: str,
 ) -> LoginResult:
-    """
-    Valida las credenciales y genera un JWT de acceso.
-
-    El token contiene el identificador del usuario,
-    no su contraseña ni información sensible.
-    """
+    """Autentica al usuario y genera su token JWT de acceso."""
 
     user = authenticate_user(
         db,
