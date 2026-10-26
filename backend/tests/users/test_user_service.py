@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import verify_password
+from app.core.security import hash_password, verify_password
 from app.db.session import Base
 from app.modules.users.model import User
 from app.modules.users.schemas import UserCreate, UserUpdate
@@ -92,13 +92,28 @@ def user_data():
 
 
 @pytest.fixture
-def created_user(db, service, user_data):
-    """Crea el administrador principal."""
-    return service.create_user(db, user_data)
+def created_user(db, user_data):
+    """Inicializa el primer administrador sin depender del servicio."""
+
+    user = User(
+        rol_id=1,
+        nombre=user_data.nombre,
+        apellido=user_data.apellido,
+        email=user_data.email,
+        telefono=user_data.telefono,
+        password_hash=hash_password(user_data.password),
+        activo=True,
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user
 
 
 @pytest.fixture
-def second_admin(db, service):
+def second_admin(db, service, created_user):
     """Crea un segundo administrador activo."""
 
     return service.create_user(
@@ -110,11 +125,12 @@ def second_admin(db, service):
             email="carlos.admin@example.com",
             password=PASSWORD,
         ),
+        actor_id=created_user.id,
     )
 
 
 @pytest.fixture
-def employee(db, service):
+def employee(db, service, created_user):
     """Crea un empleado activo para pruebas de autorización."""
 
     db.execute(
@@ -131,11 +147,12 @@ def employee(db, service):
             email="pedro@example.com",
             password=PASSWORD,
         ),
+        actor_id=created_user.id,
     )
 
 
 @pytest.fixture
-def customer(db, service):
+def customer(db, service, created_user):
     """Crea un cliente activo para pruebas de autorización."""
 
     return service.create_user(
@@ -147,6 +164,7 @@ def customer(db, service):
             email="laura@example.com",
             password=PASSWORD,
         ),
+        actor_id=created_user.id,
     )
 
 
@@ -182,14 +200,23 @@ def test_create_user_hashes_password(
     db,
     service,
     user_data,
+    created_user,
 ):
     """La contraseña se almacena como hash Argon2id."""
 
-    result = service.create_user(db, user_data)
+    data = user_data.model_copy(
+        update={"email": "ana.nueva@example.com"}
+    )
+
+    result = service.create_user(
+        db,
+        data,
+        actor_id=created_user.id,
+    )
 
     user = db.get(User, result.id)
 
-    assert result.email == "ana@example.com"
+    assert result.email == "ana.nueva@example.com"
     assert user is not None
     assert user.password_hash != user_data.password
     assert user.password_hash.startswith("$argon2id$")
@@ -230,6 +257,7 @@ def test_create_user_rejects_duplicate_email(
         lambda: service.create_user(
             db,
             user_data,
+            actor_id=created_user.id,
         ),
     )
 
@@ -237,6 +265,7 @@ def test_create_user_rejects_duplicate_email(
 def test_create_user_rejects_inactive_role(
     db,
     service,
+    created_user,
 ):
     """No se permite crear usuarios con roles inactivos."""
 
@@ -250,13 +279,14 @@ def test_create_user_rejects_inactive_role(
 
     assert_http_error(
         422,
-        lambda: service.create_user(db, data),
+        lambda: service.create_user(db, data, actor_id=created_user.id),
     )
 
 
 def test_create_user_rejects_missing_role(
     db,
     service,
+    created_user,
 ):
     """No se permite utilizar un rol inexistente."""
 
@@ -270,7 +300,7 @@ def test_create_user_rejects_missing_role(
 
     assert_http_error(
         422,
-        lambda: service.create_user(db, data),
+        lambda: service.create_user(db, data, actor_id=created_user.id),
     )
 
 
@@ -499,6 +529,7 @@ def test_reactivate_user(
     result = service.reactivate_user(
         db,
         second_admin.id,
+        actor_id=created_user.id,
     )
 
     assert result.activo is True
@@ -901,3 +932,240 @@ def test_non_admin_cannot_deactivate_user(
     )
 
     assert db.get(User, created_user.id).activo is True
+
+
+# ============================================================
+# SEGURIDAD: CREACI?N Y REACTIVACI?N ADMINISTRATIVA
+# ============================================================
+
+
+def administrative_user_payload(email="nuevo.seguridad@example.com"):
+    """Datos de prueba para operaciones administrativas."""
+
+    return UserCreate(
+        rol_id=3,
+        nombre="Nuevo",
+        apellido="Usuario",
+        email=email,
+        password=PASSWORD,
+    )
+
+
+def deactivate_test_account(db, user):
+    """Prepara una cuenta inactiva sin depender de permisos HTTP."""
+
+    user.activo = False
+    db.commit()
+    db.refresh(user)
+
+
+@pytest.mark.parametrize("actor_id", [0, -1, True])
+def test_create_rejects_invalid_actor(
+    db,
+    service,
+    created_user,
+    actor_id,
+):
+    """La creaci?n rechaza identificadores administrativos inv?lidos."""
+
+    assert_http_error(
+        403,
+        lambda: service.create_user(
+            db,
+            administrative_user_payload(),
+            actor_id=actor_id,
+        ),
+    )
+
+    assert service.get_users(db)["total"] == 1
+
+
+@pytest.mark.parametrize("actor_id", [0, -1, True])
+def test_reactivate_rejects_invalid_actor(
+    db,
+    service,
+    created_user,
+    customer,
+    actor_id,
+):
+    """La reactivaci?n rechaza identificadores inv?lidos."""
+
+    target = db.get(User, customer.id)
+    deactivate_test_account(db, target)
+
+    assert_http_error(
+        403,
+        lambda: service.reactivate_user(
+            db,
+            target.id,
+            actor_id=actor_id,
+        ),
+    )
+
+    db.refresh(target)
+    assert target.activo is False
+
+
+@pytest.mark.parametrize("role_fixture", ["employee", "customer"])
+def test_non_admin_cannot_create_user(
+    db,
+    service,
+    created_user,
+    role_fixture,
+    request,
+):
+    """Empleados y clientes no pueden crear cuentas administrativamente."""
+
+    actor = request.getfixturevalue(role_fixture)
+    total_before = service.get_users(db)["total"]
+
+    assert_http_error(
+        403,
+        lambda: service.create_user(
+            db,
+            administrative_user_payload(),
+            actor_id=actor.id,
+        ),
+    )
+
+    assert service.get_users(db)["total"] == total_before
+
+
+@pytest.mark.parametrize("role_fixture", ["employee", "customer"])
+def test_non_admin_cannot_reactivate_user(
+    db,
+    service,
+    created_user,
+    role_fixture,
+    request,
+):
+    """Empleados y clientes no pueden reactivar cuentas."""
+
+    actor = request.getfixturevalue(role_fixture)
+
+    target = db.get(User, created_user.id)
+
+    # Se crea una cuenta adicional que actuar? como objetivo.
+    target_data = administrative_user_payload(
+        "objetivo.reactivar@example.com"
+    )
+    result = service.create_user(
+        db,
+        target_data,
+        actor_id=created_user.id,
+    )
+
+    target = db.get(User, result.id)
+    deactivate_test_account(db, target)
+
+    assert_http_error(
+        403,
+        lambda: service.reactivate_user(
+            db,
+            target.id,
+            actor_id=actor.id,
+        ),
+    )
+
+    db.refresh(target)
+    assert target.activo is False
+
+
+def test_inactive_admin_cannot_create_user(
+    db,
+    service,
+    created_user,
+    second_admin,
+):
+    """Una cuenta administrativa desactivada no puede crear usuarios."""
+
+    actor = db.get(User, second_admin.id)
+    deactivate_test_account(db, actor)
+
+    assert_http_error(
+        403,
+        lambda: service.create_user(
+            db,
+            administrative_user_payload(),
+            actor_id=actor.id,
+        ),
+    )
+
+
+def test_inactive_admin_cannot_reactivate_user(
+    db,
+    service,
+    created_user,
+    second_admin,
+    customer,
+):
+    """Una cuenta administrativa desactivada no puede reactivar usuarios."""
+
+    actor = db.get(User, second_admin.id)
+    target = db.get(User, customer.id)
+
+    deactivate_test_account(db, actor)
+    deactivate_test_account(db, target)
+
+    assert_http_error(
+        403,
+        lambda: service.reactivate_user(
+            db,
+            target.id,
+            actor_id=actor.id,
+        ),
+    )
+
+    db.refresh(target)
+    assert target.activo is False
+
+
+def test_inactive_admin_role_blocks_creation(
+    db,
+    service,
+    created_user,
+):
+    """La creaci?n falla cuando el rol Administrador est? inactivo."""
+
+    db.execute(
+        text("UPDATE roles SET activo = 0 WHERE id = 1")
+    )
+    db.commit()
+
+    assert_http_error(
+        403,
+        lambda: service.create_user(
+            db,
+            administrative_user_payload(),
+            actor_id=created_user.id,
+        ),
+    )
+
+
+def test_inactive_admin_role_blocks_reactivation(
+    db,
+    service,
+    created_user,
+    customer,
+):
+    """La reactivaci?n falla cuando el rol Administrador est? inactivo."""
+
+    target = db.get(User, customer.id)
+    deactivate_test_account(db, target)
+
+    db.execute(
+        text("UPDATE roles SET activo = 0 WHERE id = 1")
+    )
+    db.commit()
+
+    assert_http_error(
+        403,
+        lambda: service.reactivate_user(
+            db,
+            target.id,
+            actor_id=created_user.id,
+        ),
+    )
+
+    db.refresh(target)
+    assert target.activo is False
