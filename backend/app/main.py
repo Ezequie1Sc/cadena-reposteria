@@ -22,6 +22,7 @@ from app.modules.categories.routes import router as categories_router
 from app.modules.branches.routes import router as branches_router
 from app.modules.customers.routes import router as customers_router
 from app.modules.employees.routes import router as employees_router
+from app.modules.users.routes import router as users_router
 
 
 # ============================================================
@@ -57,6 +58,7 @@ app.include_router(categories_router)
 app.include_router(branches_router)
 app.include_router(customers_router)
 app.include_router(employees_router)
+app.include_router(users_router)
 
 
 # ============================================================
@@ -65,7 +67,7 @@ app.include_router(employees_router)
 
 @app.get("/", tags=["Inicio"])
 def root():
-    """Comprobar que la API está disponible."""
+    """Comprueba que la API está disponible."""
 
     return {
         "message": "Sistema de Gestión de Repostería",
