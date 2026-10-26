@@ -1,6 +1,8 @@
 
 """Pruebas del servicio de autenticación mediante correo y contraseña."""
 
+from datetime import datetime, timedelta, timezone
+
 import jwt
 import pytest
 
@@ -9,6 +11,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.auth import validate_active_role
 from app.core.config import settings
 from app.core.jwt import decode_access_token
 from app.core.login import LoginResult, authenticate_user, login_user
@@ -19,6 +22,10 @@ from app.shared.models.role_reference import roles_reference
 
 
 PASSWORD = "PasswordSegura2026!"
+
+INVALID_CREDENTIALS_MESSAGE = (
+    "Correo electrónico o contraseña incorrectos"
+)
 
 
 # ============================================================
@@ -48,6 +55,8 @@ def db():
         ],
     )
 
+    # El modelo de referencia únicamente define roles.id.
+    # Añadimos las columnas necesarias para las pruebas.
     with engine.begin() as connection:
         connection.exec_driver_sql(
             "ALTER TABLE roles "
@@ -148,9 +157,7 @@ def test_nonexistent_email_returns_401(db):
         )
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == (
-        "Correo electrónico o contraseña incorrectos"
-    )
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
 
 
 def test_incorrect_password_returns_401(db, user):
@@ -164,9 +171,7 @@ def test_incorrect_password_returns_401(db, user):
         )
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == (
-        "Correo electrónico o contraseña incorrectos"
-    )
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
 
 
 @pytest.mark.parametrize(
@@ -188,6 +193,7 @@ def test_empty_credentials_return_401(db, email, password):
         )
 
     assert exc.value.status_code == 401
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
 
 
 def test_invalid_password_hash_returns_401(db, user):
@@ -204,10 +210,11 @@ def test_invalid_password_hash_returns_401(db, user):
         )
 
     assert exc.value.status_code == 401
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
 
 
 def test_missing_user_and_wrong_password_have_same_error(db, user):
-    """No se distingue entre correo inexistente y contraseña incorrecta."""
+    """No distingue entre correo inexistente y contraseña incorrecta."""
 
     errors = []
 
@@ -237,8 +244,8 @@ def test_missing_user_and_wrong_password_have_same_error(db, user):
 # ============================================================
 
 
-def test_inactive_user_returns_403(db, user):
-    """Un usuario inactivo no puede iniciar sesión."""
+def test_inactive_user_returns_401(db, user):
+    """Un usuario inactivo recibe el mismo error genérico."""
 
     user.activo = False
     db.commit()
@@ -250,14 +257,13 @@ def test_inactive_user_returns_403(db, user):
             password=PASSWORD,
         )
 
-    assert exc.value.status_code == 403
-    assert exc.value.detail == (
-        "La cuenta de usuario está inactiva"
-    )
+    assert exc.value.status_code == 401
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
+    assert exc.value.headers["WWW-Authenticate"] == "Bearer"
 
 
-def test_inactive_role_returns_403(db, user):
-    """Un rol inactivo impide iniciar sesión."""
+def test_inactive_role_returns_401(db, user):
+    """Un rol inactivo no revela información de la cuenta."""
 
     db.execute(
         text(
@@ -277,16 +283,13 @@ def test_inactive_role_returns_403(db, user):
             password=PASSWORD,
         )
 
-    assert exc.value.status_code == 403
-    assert exc.value.detail == (
-        "El rol del usuario está inactivo"
-    )
+    assert exc.value.status_code == 401
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
+    assert exc.value.headers["WWW-Authenticate"] == "Bearer"
 
 
 def test_nonexistent_role_returns_403(db):
-    """La validación de roles rechaza identificadores inexistentes."""
-
-    from app.core.auth import validate_active_role
+    """La validación directa rechaza identificadores inexistentes."""
 
     with pytest.raises(HTTPException) as exc:
         validate_active_role(db, 999)
@@ -365,7 +368,7 @@ def test_login_token_does_not_expose_sensitive_data(db, user):
 
 
 def test_login_rejects_invalid_password(db, user):
-    """El servicio de login no emite tokens con credenciales incorrectas."""
+    """El servicio no emite tokens con credenciales incorrectas."""
 
     with pytest.raises(HTTPException) as exc:
         login_user(
@@ -375,3 +378,4 @@ def test_login_rejects_invalid_password(db, user):
         )
 
     assert exc.value.status_code == 401
+    assert exc.value.detail == INVALID_CREDENTIALS_MESSAGE
