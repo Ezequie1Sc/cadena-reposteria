@@ -1,3 +1,4 @@
+
 """Repositorio de acceso a datos para usuarios."""
 
 from sqlalchemy import func, or_, select
@@ -58,10 +59,11 @@ class UserRepository:
         self,
         db: Session,
         *,
+        busqueda: str | None = None,
         rol_id: int | None = None,
         solo_activos: bool | None = True,
     ) -> int:
-        """Cuenta usuarios aplicando filtros."""
+        """Cuenta usuarios aplicando los mismos filtros del listado."""
 
         query = (
             select(func.count())
@@ -77,6 +79,18 @@ class UserRepository:
             query = query.where(
                 User.rol_id == rol_id
             )
+
+        if busqueda:
+            termino = busqueda.strip()
+
+            if termino:
+                query = query.where(
+                    or_(
+                        User.nombre.ilike(f"%{termino}%"),
+                        User.apellido.ilike(f"%{termino}%"),
+                        User.email.ilike(f"%{termino}%"),
+                    )
+                )
 
         return db.scalar(query) or 0
 
