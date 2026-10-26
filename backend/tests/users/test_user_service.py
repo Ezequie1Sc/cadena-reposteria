@@ -20,6 +20,11 @@ PASSWORD = "PasswordSegura2026!"
 NEW_PASSWORD = "NuevaPasswordSegura2026!"
 
 
+# ============================================================
+# FIXTURES
+# ============================================================
+
+
 @pytest.fixture
 def db():
     """Crea una base SQLite aislada para cada prueba."""
@@ -47,8 +52,10 @@ def db():
             "ALTER TABLE roles "
             "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
         )
+
         connection.exec_driver_sql(
-            "INSERT INTO roles (id, activo) VALUES (1, 1), (2, 0)"
+            "INSERT INTO roles (id, activo) "
+            "VALUES (1, 1), (2, 0), (3, 1)"
         )
 
     SessionLocal = sessionmaker(
@@ -66,11 +73,14 @@ def db():
 
 @pytest.fixture
 def service():
+    """Devuelve una instancia del servicio de usuarios."""
     return UserService()
 
 
 @pytest.fixture
 def user_data():
+    """Datos válidos para crear un administrador."""
+
     return UserCreate(
         rol_id=1,
         nombre="Ana",
@@ -83,6 +93,7 @@ def user_data():
 
 @pytest.fixture
 def created_user(db, service, user_data):
+    """Crea el administrador principal."""
     return service.create_user(db, user_data)
 
 
@@ -100,6 +111,48 @@ def second_admin(db, service):
             password=PASSWORD,
         ),
     )
+
+
+@pytest.fixture
+def employee(db, service):
+    """Crea un empleado activo para pruebas de autorización."""
+
+    db.execute(
+        text("UPDATE roles SET activo = 1 WHERE id = 2")
+    )
+    db.commit()
+
+    return service.create_user(
+        db,
+        UserCreate(
+            rol_id=2,
+            nombre="Pedro",
+            apellido="Gómez",
+            email="pedro@example.com",
+            password=PASSWORD,
+        ),
+    )
+
+
+@pytest.fixture
+def customer(db, service):
+    """Crea un cliente activo para pruebas de autorización."""
+
+    return service.create_user(
+        db,
+        UserCreate(
+            rol_id=3,
+            nombre="Laura",
+            apellido="Martínez",
+            email="laura@example.com",
+            password=PASSWORD,
+        ),
+    )
+
+
+# ============================================================
+# HELPERS
+# ============================================================
 
 
 def activate_employee_role(db):
@@ -125,7 +178,13 @@ def assert_http_error(expected_status, operation):
 # ============================================================
 
 
-def test_create_user_hashes_password(db, service, user_data):
+def test_create_user_hashes_password(
+    db,
+    service,
+    user_data,
+):
+    """La contraseña se almacena como hash Argon2id."""
+
     result = service.create_user(db, user_data)
 
     user = db.get(User, result.id)
@@ -134,28 +193,53 @@ def test_create_user_hashes_password(db, service, user_data):
     assert user is not None
     assert user.password_hash != user_data.password
     assert user.password_hash.startswith("$argon2id$")
-    assert verify_password(user_data.password, user.password_hash)
-
-
-def test_user_response_does_not_expose_password(
-    db, service, created_user
-):
-    response = service.get_user_by_id(db, created_user.id)
-
-    assert "password_hash" not in response.model_dump()
-    assert "password" not in response.model_dump()
-
-
-def test_create_user_rejects_duplicate_email(
-    db, service, user_data, created_user
-):
-    assert_http_error(
-        409,
-        lambda: service.create_user(db, user_data),
+    assert verify_password(
+        user_data.password,
+        user.password_hash,
     )
 
 
-def test_create_user_rejects_inactive_role(db, service):
+def test_user_response_does_not_expose_password(
+    db,
+    service,
+    created_user,
+):
+    """Las respuestas públicas no contienen contraseñas."""
+
+    response = service.get_user_by_id(
+        db,
+        created_user.id,
+    )
+
+    data = response.model_dump()
+
+    assert "password_hash" not in data
+    assert "password" not in data
+
+
+def test_create_user_rejects_duplicate_email(
+    db,
+    service,
+    user_data,
+    created_user,
+):
+    """No se permiten correos duplicados."""
+
+    assert_http_error(
+        409,
+        lambda: service.create_user(
+            db,
+            user_data,
+        ),
+    )
+
+
+def test_create_user_rejects_inactive_role(
+    db,
+    service,
+):
+    """No se permite crear usuarios con roles inactivos."""
+
     data = UserCreate(
         rol_id=2,
         nombre="Carlos",
@@ -170,7 +254,12 @@ def test_create_user_rejects_inactive_role(db, service):
     )
 
 
-def test_create_user_rejects_missing_role(db, service):
+def test_create_user_rejects_missing_role(
+    db,
+    service,
+):
+    """No se permite utilizar un rol inexistente."""
+
     data = UserCreate(
         rol_id=999,
         nombre="Carlos",
@@ -186,25 +275,48 @@ def test_create_user_rejects_missing_role(db, service):
 
 
 # ============================================================
-# CONSULTAS
+# CONSULTAS DE USUARIOS
 # ============================================================
 
 
-def test_get_user_by_id(db, service, created_user):
-    result = service.get_user_by_id(db, created_user.id)
+def test_get_user_by_id(
+    db,
+    service,
+    created_user,
+):
+    """Permite consultar un usuario existente."""
+
+    result = service.get_user_by_id(
+        db,
+        created_user.id,
+    )
 
     assert result.id == created_user.id
     assert result.nombre == "Ana"
 
 
-def test_get_user_by_id_returns_404(db, service):
+def test_get_user_by_id_returns_404(
+    db,
+    service,
+):
+    """Devuelve 404 para usuarios inexistentes."""
+
     assert_http_error(
         404,
-        lambda: service.get_user_by_id(db, 999),
+        lambda: service.get_user_by_id(
+            db,
+            999,
+        ),
     )
 
 
-def test_get_users_filters_by_search(db, service, created_user):
+def test_get_users_filters_by_search(
+    db,
+    service,
+    created_user,
+):
+    """Permite buscar usuarios por correo electrónico."""
+
     result = service.get_users(
         db,
         busqueda="ana@example.com",
@@ -216,8 +328,12 @@ def test_get_users_filters_by_search(db, service, created_user):
 
 
 def test_get_users_search_without_matches(
-    db, service, created_user
+    db,
+    service,
+    created_user,
 ):
+    """Devuelve un listado vacío cuando no hay coincidencias."""
+
     result = service.get_users(
         db,
         busqueda="noexiste@example.com",
@@ -227,7 +343,13 @@ def test_get_users_search_without_matches(
     assert result["items"] == []
 
 
-def test_get_users_pagination(db, service, created_user):
+def test_get_users_pagination(
+    db,
+    service,
+    created_user,
+):
+    """Aplica correctamente la paginación."""
+
     result = service.get_users(
         db,
         page=1,
@@ -240,17 +362,33 @@ def test_get_users_pagination(db, service, created_user):
     assert result["page_size"] == 1
 
 
-def test_get_users_rejects_invalid_page(db, service):
+def test_get_users_rejects_invalid_page(
+    db,
+    service,
+):
+    """Rechaza números de página inválidos."""
+
     assert_http_error(
         422,
-        lambda: service.get_users(db, page=0),
+        lambda: service.get_users(
+            db,
+            page=0,
+        ),
     )
 
 
-def test_get_users_rejects_invalid_page_size(db, service):
+def test_get_users_rejects_invalid_page_size(
+    db,
+    service,
+):
+    """Rechaza tamaños de página fuera del límite."""
+
     assert_http_error(
         422,
-        lambda: service.get_users(db, page_size=101),
+        lambda: service.get_users(
+            db,
+            page_size=101,
+        ),
     )
 
 
@@ -259,7 +397,13 @@ def test_get_users_rejects_invalid_page_size(db, service):
 # ============================================================
 
 
-def test_update_user(db, service, created_user):
+def test_update_user(
+    db,
+    service,
+    created_user,
+):
+    """Permite actualizar datos personales."""
+
     result = service.update_user(
         db,
         created_user.id,
@@ -271,7 +415,13 @@ def test_update_user(db, service, created_user):
     assert result.email == "ana@example.com"
 
 
-def test_update_password(db, service, created_user):
+def test_update_password(
+    db,
+    service,
+    created_user,
+):
+    """La actualización de contraseña genera un nuevo hash."""
+
     service.update_user(
         db,
         created_user.id,
@@ -285,6 +435,7 @@ def test_update_password(db, service, created_user):
         NEW_PASSWORD,
         user.password_hash,
     )
+
     assert not verify_password(
         PASSWORD,
         user.password_hash,
@@ -292,8 +443,12 @@ def test_update_password(db, service, created_user):
 
 
 def test_update_rejects_null_required_field(
-    db, service, created_user
+    db,
+    service,
+    created_user,
 ):
+    """Los campos obligatorios no admiten valores nulos."""
+
     assert_http_error(
         422,
         lambda: service.update_user(
@@ -316,6 +471,8 @@ def test_deactivate_user(
     created_user,
     second_admin,
 ):
+    """Un administrador puede desactivar a otro."""
+
     result = service.deactivate_user(
         db,
         second_admin.id,
@@ -331,6 +488,8 @@ def test_reactivate_user(
     created_user,
     second_admin,
 ):
+    """Permite reactivar una cuenta desactivada."""
+
     service.deactivate_user(
         db,
         second_admin.id,
@@ -355,7 +514,7 @@ def test_admin_cannot_deactivate_self(
     service,
     created_user,
 ):
-    """Un administrador no puede desactivar su propia cuenta."""
+    """Un administrador no puede desactivar su cuenta."""
 
     assert_http_error(
         403,
@@ -366,9 +525,9 @@ def test_admin_cannot_deactivate_self(
         ),
     )
 
-    db.refresh(db.get(User, created_user.id))
+    user = db.get(User, created_user.id)
 
-    assert db.get(User, created_user.id).activo is True
+    assert user.activo is True
 
 
 def test_admin_cannot_deactivate_self_with_other_admin(
@@ -377,7 +536,7 @@ def test_admin_cannot_deactivate_self_with_other_admin(
     created_user,
     second_admin,
 ):
-    """La autodesactivación sigue prohibida aunque existan otros."""
+    """La autodesactivación está prohibida incluso con otros administradores."""
 
     assert_http_error(
         403,
@@ -403,7 +562,7 @@ def test_admin_cannot_change_own_role(
     created_user,
     second_admin,
 ):
-    """Un administrador no puede quitarse sus propios permisos."""
+    """Un administrador no puede cambiar su propio rol."""
 
     activate_employee_role(db)
 
@@ -417,9 +576,9 @@ def test_admin_cannot_change_own_role(
         ),
     )
 
-    db.refresh(db.get(User, created_user.id))
+    user = db.get(User, created_user.id)
 
-    assert db.get(User, created_user.id).rol_id == 1
+    assert user.rol_id == 1
 
 
 def test_admin_can_update_own_personal_data(
@@ -427,7 +586,7 @@ def test_admin_can_update_own_personal_data(
     service,
     created_user,
 ):
-    """Un administrador puede modificar sus datos personales."""
+    """Un administrador puede actualizar sus datos personales."""
 
     result = service.update_user(
         db,
@@ -455,7 +614,10 @@ def test_cannot_deactivate_last_active_admin(
     created_user,
     second_admin,
 ):
-    """No se permite dejar el sistema sin administradores."""
+    """
+    Un administrador inactivo no puede desactivar
+    al único administrador activo.
+    """
 
     service.deactivate_user(
         db,
@@ -464,7 +626,7 @@ def test_cannot_deactivate_last_active_admin(
     )
 
     assert_http_error(
-        409,
+        403,
         lambda: service.deactivate_user(
             db,
             created_user.id,
@@ -472,7 +634,9 @@ def test_cannot_deactivate_last_active_admin(
         ),
     )
 
-    assert db.get(User, created_user.id).activo is True
+    user = db.get(User, created_user.id)
+
+    assert user.activo is True
 
 
 def test_cannot_remove_last_active_admin_role(
@@ -481,7 +645,10 @@ def test_cannot_remove_last_active_admin_role(
     created_user,
     second_admin,
 ):
-    """El último administrador no puede perder su rol."""
+    """
+    Un administrador inactivo no puede retirar
+    el rol del último administrador activo.
+    """
 
     activate_employee_role(db)
 
@@ -492,7 +659,7 @@ def test_cannot_remove_last_active_admin_role(
     )
 
     assert_http_error(
-        409,
+        403,
         lambda: service.update_user(
             db,
             created_user.id,
@@ -501,9 +668,9 @@ def test_cannot_remove_last_active_admin_role(
         ),
     )
 
-    db.refresh(db.get(User, created_user.id))
+    user = db.get(User, created_user.id)
 
-    assert db.get(User, created_user.id).rol_id == 1
+    assert user.rol_id == 1
 
 
 def test_admin_can_change_another_admin_role(
@@ -512,7 +679,7 @@ def test_admin_can_change_another_admin_role(
     created_user,
     second_admin,
 ):
-    """Se permite cambiar el rol si queda otro administrador."""
+    """Puede cambiar el rol de otro administrador si queda uno activo."""
 
     activate_employee_role(db)
 
@@ -533,7 +700,7 @@ def test_admin_can_deactivate_another_admin(
     created_user,
     second_admin,
 ):
-    """Se permite desactivar a otro administrador si no es el último."""
+    """Puede desactivar a otro administrador si queda uno activo."""
 
     result = service.deactivate_user(
         db,
@@ -546,7 +713,7 @@ def test_admin_can_deactivate_another_admin(
 
 
 # ============================================================
-# SEGURIDAD: IDENTIDAD DEL ACTOR
+# SEGURIDAD: IDENTIFICADORES INVÁLIDOS
 # ============================================================
 
 
@@ -560,7 +727,7 @@ def test_update_rejects_invalid_actor(
     created_user,
     actor_id,
 ):
-    """Se rechazan identificadores administrativos inválidos."""
+    """Rechaza identificadores inválidos al actualizar."""
 
     assert_http_error(
         403,
@@ -583,7 +750,7 @@ def test_deactivate_rejects_invalid_actor(
     created_user,
     actor_id,
 ):
-    """No se permite desactivar sin identidad administrativa válida."""
+    """Rechaza identificadores inválidos al desactivar."""
 
     assert_http_error(
         403,
@@ -593,3 +760,144 @@ def test_deactivate_rejects_invalid_actor(
             actor_id=actor_id,
         ),
     )
+
+
+# ============================================================
+# SEGURIDAD: ADMINISTRADORES INACTIVOS
+# ============================================================
+
+
+def test_inactive_admin_cannot_update_user(
+    db,
+    service,
+    created_user,
+    second_admin,
+):
+    """Un administrador desactivado no puede actualizar usuarios."""
+
+    service.deactivate_user(
+        db,
+        second_admin.id,
+        actor_id=created_user.id,
+    )
+
+    assert_http_error(
+        403,
+        lambda: service.update_user(
+            db,
+            created_user.id,
+            UserUpdate(nombre="Cambio prohibido"),
+            actor_id=second_admin.id,
+        ),
+    )
+
+    assert db.get(User, created_user.id).nombre == "Ana"
+
+
+def test_nonexistent_actor_cannot_update_user(
+    db,
+    service,
+    created_user,
+):
+    """Un usuario inexistente no puede ejecutar operaciones."""
+
+    assert_http_error(
+        403,
+        lambda: service.update_user(
+            db,
+            created_user.id,
+            UserUpdate(nombre="Cambio prohibido"),
+            actor_id=999999,
+        ),
+    )
+
+    assert db.get(User, created_user.id).nombre == "Ana"
+
+
+def test_inactive_admin_role_blocks_updates(
+    db,
+    service,
+    created_user,
+):
+    """Un rol Administrador inactivo impide actualizar usuarios."""
+
+    db.execute(
+        text(
+            "UPDATE roles "
+            "SET activo = 0 "
+            "WHERE id = 1"
+        )
+    )
+    db.commit()
+
+    assert_http_error(
+        403,
+        lambda: service.update_user(
+            db,
+            created_user.id,
+            UserUpdate(nombre="Cambio prohibido"),
+            actor_id=created_user.id,
+        ),
+    )
+
+    assert db.get(User, created_user.id).nombre == "Ana"
+
+
+# ============================================================
+# SEGURIDAD: EMPLEADOS Y CLIENTES
+# ============================================================
+
+
+@pytest.mark.parametrize(
+    "role_fixture",
+    ["employee", "customer"],
+)
+def test_non_admin_cannot_update_user(
+    db,
+    service,
+    created_user,
+    role_fixture,
+    request,
+):
+    """Empleados y clientes no pueden actualizar usuarios."""
+
+    non_admin = request.getfixturevalue(role_fixture)
+
+    assert_http_error(
+        403,
+        lambda: service.update_user(
+            db,
+            created_user.id,
+            UserUpdate(nombre="Cambio prohibido"),
+            actor_id=non_admin.id,
+        ),
+    )
+
+    assert db.get(User, created_user.id).nombre == "Ana"
+
+
+@pytest.mark.parametrize(
+    "role_fixture",
+    ["employee", "customer"],
+)
+def test_non_admin_cannot_deactivate_user(
+    db,
+    service,
+    created_user,
+    role_fixture,
+    request,
+):
+    """Empleados y clientes no pueden desactivar usuarios."""
+
+    non_admin = request.getfixturevalue(role_fixture)
+
+    assert_http_error(
+        403,
+        lambda: service.deactivate_user(
+            db,
+            created_user.id,
+            actor_id=non_admin.id,
+        ),
+    )
+
+    assert db.get(User, created_user.id).activo is True
