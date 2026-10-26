@@ -22,7 +22,6 @@ router = APIRouter(
     tags=["Usuarios"],
 )
 
-
 DbSession = Annotated[Session, Depends(get_db)]
 
 UserID = Annotated[
@@ -35,7 +34,7 @@ UserID = Annotated[
 
 
 class PaginatedUsersResponse(BaseModel):
-    """Respuesta paginada del listado de usuarios."""
+    """Respuesta paginada de usuarios."""
 
     items: list[UserResponse]
     total: int = Field(ge=0)
@@ -47,13 +46,10 @@ class PaginatedUsersResponse(BaseModel):
     "",
     response_model=PaginatedUsersResponse,
     summary="Listar usuarios",
-    description=(
-        "Consulta usuarios con búsqueda, filtros por rol "
-        "y estado, y paginación. Requiere rol Administrador."
-    ),
+    description="Consulta usuarios con filtros y paginación.",
     responses={
-        401: {"description": "Autenticación requerida"},
-        403: {"description": "Permisos insuficientes"},
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permisos"},
         422: {"description": "Parámetros inválidos"},
     },
 )
@@ -62,44 +58,26 @@ def list_users(
     admin: AdminUser,
     busqueda: Annotated[
         str | None,
-        Query(
-            max_length=254,
-            description="Buscar por nombre, apellido o correo",
-        ),
+        Query(max_length=254),
     ] = None,
     rol_id: Annotated[
         int | None,
-        Query(
-            gt=0,
-            description="Filtrar por identificador de rol",
-        ),
+        Query(gt=0),
     ] = None,
     solo_activos: Annotated[
         bool | None,
-        Query(
-            description=(
-                "True: activos; False: inactivos; "
-                "omitir para usar el filtro predeterminado"
-            ),
-        ),
+        Query(),
     ] = True,
     page: Annotated[
         int,
-        Query(
-            ge=1,
-            description="Número de página",
-        ),
+        Query(ge=1),
     ] = 1,
     page_size: Annotated[
         int,
-        Query(
-            ge=1,
-            le=100,
-            description="Usuarios por página",
-        ),
+        Query(ge=1, le=100),
     ] = 20,
 ) -> PaginatedUsersResponse:
-    """Devuelve usuarios según los filtros solicitados."""
+    """Lista usuarios autorizados para administración."""
 
     result = user_service.get_users(
         db=db,
@@ -117,13 +95,9 @@ def list_users(
     "/{user_id}",
     response_model=UserResponse,
     summary="Consultar usuario",
-    description=(
-        "Obtiene la información de un usuario por ID. "
-        "Requiere rol Administrador."
-    ),
     responses={
-        401: {"description": "Autenticación requerida"},
-        403: {"description": "Permisos insuficientes"},
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permisos"},
         404: {"description": "Usuario no encontrado"},
         422: {"description": "Identificador inválido"},
     },
@@ -133,7 +107,7 @@ def get_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Consulta un usuario específico."""
+    """Obtiene los datos públicos de un usuario."""
 
     return user_service.get_user_by_id(
         db=db,
@@ -146,15 +120,11 @@ def get_user(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Crear usuario",
-    description=(
-        "Registra un usuario con contraseña protegida "
-        "mediante Argon2id. Requiere rol Administrador."
-    ),
     responses={
-        401: {"description": "Autenticación requerida"},
-        403: {"description": "Permisos insuficientes"},
-        409: {"description": "Correo electrónico duplicado"},
-        422: {"description": "Datos o rol inválidos"},
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permisos"},
+        409: {"description": "Conflicto de datos"},
+        422: {"description": "Datos inválidos"},
     },
 )
 def create_user(
@@ -162,7 +132,7 @@ def create_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Registra un usuario en el sistema."""
+    """Registra un usuario con contraseña protegida."""
 
     return user_service.create_user(
         db=db,
@@ -174,15 +144,11 @@ def create_user(
     "/{user_id}",
     response_model=UserResponse,
     summary="Actualizar usuario",
-    description=(
-        "Actualiza parcialmente los datos de un usuario. "
-        "Requiere rol Administrador."
-    ),
     responses={
-        401: {"description": "Autenticación requerida"},
-        403: {"description": "Permisos insuficientes"},
+        401: {"description": "No autenticado"},
+        403: {"description": "Operación prohibida"},
         404: {"description": "Usuario no encontrado"},
-        409: {"description": "Conflicto de datos"},
+        409: {"description": "Conflicto administrativo o de datos"},
         422: {"description": "Datos inválidos"},
     },
 )
@@ -192,12 +158,13 @@ def update_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Actualiza los campos proporcionados."""
+    """Actualiza un usuario respetando las reglas administrativas."""
 
     return user_service.update_user(
         db=db,
         user_id=user_id,
         data=data,
+        actor_id=admin.id,
     )
 
 
@@ -205,15 +172,11 @@ def update_user(
     "/{user_id}",
     response_model=UserResponse,
     summary="Desactivar usuario",
-    description=(
-        "Desactiva una cuenta sin eliminar sus datos. "
-        "Requiere rol Administrador."
-    ),
     responses={
-        401: {"description": "Autenticación requerida"},
-        403: {"description": "Permisos insuficientes"},
+        401: {"description": "No autenticado"},
+        403: {"description": "Autodesactivación prohibida"},
         404: {"description": "Usuario no encontrado"},
-        409: {"description": "Conflicto de datos"},
+        409: {"description": "Último administrador activo"},
         422: {"description": "Identificador inválido"},
     },
 )
@@ -222,11 +185,12 @@ def deactivate_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Desactiva lógicamente un usuario."""
+    """Desactiva un usuario sin eliminarlo físicamente."""
 
     return user_service.deactivate_user(
         db=db,
         user_id=user_id,
+        actor_id=admin.id,
     )
 
 
@@ -234,16 +198,12 @@ def deactivate_user(
     "/{user_id}/reactivar",
     response_model=UserResponse,
     summary="Reactivar usuario",
-    description=(
-        "Reactiva una cuenta siempre que su rol siga activo. "
-        "Requiere rol Administrador."
-    ),
     responses={
-        401: {"description": "Autenticación requerida"},
-        403: {"description": "Permisos insuficientes"},
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permisos"},
         404: {"description": "Usuario no encontrado"},
         409: {"description": "Conflicto de datos"},
-        422: {"description": "Identificador o rol inválido"},
+        422: {"description": "Rol inválido o inactivo"},
     },
 )
 def reactivate_user(
@@ -251,7 +211,7 @@ def reactivate_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Reactiva una cuenta previamente desactivada."""
+    """Reactiva un usuario si su rol continúa activo."""
 
     return user_service.reactivate_user(
         db=db,
