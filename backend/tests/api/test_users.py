@@ -723,3 +723,233 @@ def test_users_endpoints_are_registered_in_openapi(client):
     for path, methods in expected.items():
         assert path in paths
         assert methods.issubset(paths[path].keys())
+
+# ============================================================
+# SEGURIDAD HTTP: PROTECCIONES ADMINISTRATIVAS
+# ============================================================
+
+
+def test_admin_cannot_deactivate_own_account_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador no puede desactivar su propia cuenta."""
+
+    admin = users[1]
+
+    response = client.delete(
+        f"/usuarios/{admin.id}",
+        headers=auth_headers(admin),
+    )
+
+    assert response.status_code == 403
+
+    db.refresh(admin)
+    assert admin.activo is True
+
+
+def test_admin_cannot_change_own_role_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador no puede cambiar su propio rol."""
+
+    admin = users[1]
+
+    response = client.patch(
+        f"/usuarios/{admin.id}",
+        headers=auth_headers(admin),
+        json={"rol_id": 2},
+    )
+
+    assert response.status_code == 403
+
+    db.refresh(admin)
+    assert admin.rol_id == 1
+
+
+def test_admin_can_update_own_profile_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador puede actualizar sus datos personales."""
+
+    admin = users[1]
+
+    response = client.patch(
+        f"/usuarios/{admin.id}",
+        headers=auth_headers(admin),
+        json={
+            "nombre": "Administrador Actualizado",
+            "telefono": "9998887777",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["nombre"] == "Administrador Actualizado"
+    assert response.json()["telefono"] == "9998887777"
+
+    db.refresh(admin)
+    assert admin.rol_id == 1
+    assert admin.activo is True
+
+
+def test_admin_can_deactivate_another_admin_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador puede desactivar a otro si permanece activo."""
+
+    admin = users[1]
+
+    second_admin = User(
+        rol_id=1,
+        nombre="Segundo",
+        apellido="Administrador",
+        email="segundo.admin@example.com",
+        password_hash=hash_password(PASSWORD),
+        activo=True,
+    )
+
+    db.add(second_admin)
+    db.commit()
+    db.refresh(second_admin)
+
+    response = client.delete(
+        f"/usuarios/{second_admin.id}",
+        headers=auth_headers(admin),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["activo"] is False
+
+    db.refresh(second_admin)
+    db.refresh(admin)
+
+    assert second_admin.activo is False
+    assert admin.activo is True
+
+
+def test_admin_can_change_another_admin_role_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador puede cambiar el rol de otro administrador."""
+
+    admin = users[1]
+
+    second_admin = User(
+        rol_id=1,
+        nombre="Segundo",
+        apellido="Administrador",
+        email="segundo.admin@example.com",
+        password_hash=hash_password(PASSWORD),
+        activo=True,
+    )
+
+    db.add(second_admin)
+    db.commit()
+    db.refresh(second_admin)
+
+    response = client.patch(
+        f"/usuarios/{second_admin.id}",
+        headers=auth_headers(admin),
+        json={"rol_id": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["rol_id"] == 2
+
+    db.refresh(second_admin)
+    db.refresh(admin)
+
+    assert second_admin.rol_id == 2
+    assert admin.rol_id == 1
+
+
+def test_inactive_admin_cannot_update_via_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador inactivo no puede modificar usuarios."""
+
+    admin = users[1]
+    target = users[3]
+
+    headers = auth_headers(admin)
+
+    admin.activo = False
+    db.commit()
+
+    response = client.patch(
+        f"/usuarios/{target.id}",
+        headers=headers,
+        json={"nombre": "Cambio Prohibido"},
+    )
+
+    assert response.status_code == 401
+
+    db.refresh(target)
+    assert target.nombre == "Cliente"
+
+
+def test_inactive_admin_cannot_deactivate_via_http(
+    client,
+    db,
+    users,
+):
+    """Un administrador inactivo no puede desactivar usuarios."""
+
+    admin = users[1]
+    target = users[3]
+
+    headers = auth_headers(admin)
+
+    admin.activo = False
+    db.commit()
+
+    response = client.delete(
+        f"/usuarios/{target.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 401
+
+    db.refresh(target)
+    assert target.activo is True
+
+
+def test_inactive_admin_role_blocks_update_http(
+    client,
+    db,
+    users,
+):
+    """Un rol Administrador inactivo bloquea las actualizaciones."""
+
+    admin = users[1]
+    target = users[3]
+
+    headers = auth_headers(admin)
+
+    db.execute(
+        text("UPDATE roles SET activo = 0 WHERE id = 1")
+    )
+    db.commit()
+
+    response = client.patch(
+        f"/usuarios/{target.id}",
+        headers=headers,
+        json={"nombre": "Cambio Prohibido"},
+    )
+
+    assert response.status_code == 403
+
+    db.refresh(target)
+    assert target.nombre == "Cliente"
+
