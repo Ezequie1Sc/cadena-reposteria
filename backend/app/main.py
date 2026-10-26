@@ -1,20 +1,32 @@
+
 """Punto de entrada principal de la API."""
 
 from fastapi import FastAPI
 
 from app.core.config import settings
 
-# Rutas generales
+# ============================================================
+# RUTAS GENERALES
+# ============================================================
+
 from app.api.routes.health import router as health_router
 from app.api.routes.roles import router as roles_router
+from app.api.routes.auth import router as auth_router
 
-# Módulos del sistema
+# ============================================================
+# MÓDULOS DEL SISTEMA
+# ============================================================
+
 from app.modules.products.routes import router as products_router
 from app.modules.categories.routes import router as categories_router
 from app.modules.branches.routes import router as branches_router
 from app.modules.customers.routes import router as customers_router
 from app.modules.employees.routes import router as employees_router
 
+
+# ============================================================
+# CONFIGURACIÓN DE FASTAPI
+# ============================================================
 
 app = FastAPI(
     title=settings.app_name,
@@ -27,17 +39,29 @@ app = FastAPI(
 )
 
 
-# Registrar rutas generales
+# ============================================================
+# REGISTRO DE RUTAS GENERALES
+# ============================================================
+
 app.include_router(health_router)
 app.include_router(roles_router)
+app.include_router(auth_router)
 
-# Registrar módulos
+
+# ============================================================
+# REGISTRO DE MÓDULOS
+# ============================================================
+
 app.include_router(products_router)
 app.include_router(categories_router)
 app.include_router(branches_router)
 app.include_router(customers_router)
 app.include_router(employees_router)
 
+
+# ============================================================
+# ENDPOINT PRINCIPAL
+# ============================================================
 
 @app.get("/", tags=["Inicio"])
 def root():
