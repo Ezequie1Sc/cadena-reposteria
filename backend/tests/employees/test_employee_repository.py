@@ -12,6 +12,8 @@ from app.modules.employees.model import Employee
 from app.modules.employees.repository import EmployeeRepository
 from app.modules.employees.schemas import EmployeeCreate, EmployeeUpdate
 from app.shared.models.user_reference import users_reference
+from app.shared.models.role_reference import roles_reference
+from tests.employees.fixtures import create_test_users
 
 
 @pytest.fixture
@@ -31,6 +33,7 @@ def db():
     Base.metadata.create_all(
         engine,
         tables=[
+            roles_reference,
             users_reference,
             Branch.__table__,
             Employee.__table__,
@@ -68,13 +71,7 @@ def employee_data():
 def references(db: Session):
     """Registrar las referencias necesarias para las claves foráneas."""
 
-    db.execute(
-        users_reference.insert().values(id=1)
-    )
-
-    db.execute(
-        users_reference.insert().values(id=2)
-    )
+    create_test_users(db, (1, 2))
 
     branch = Branch(
         nombre="Sucursal Centro",
