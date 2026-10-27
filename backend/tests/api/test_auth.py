@@ -452,3 +452,119 @@ def test_login_endpoint_has_authentication_tag(client):
     operation = response.json()["paths"]["/auth/login"]["post"]
 
     assert "Autenticación" in operation["tags"]
+
+
+# ============================================================
+# RATE LIMITING
+# ============================================================
+
+
+def test_login_allows_five_requests_for_same_email(client, user):
+    """Permite cinco solicitudes dentro de la ventana."""
+
+    for _ in range(5):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401
+
+
+def test_login_sixth_request_returns_429(client, user):
+    """La sexta solicitud de la misma IP y correo se bloquea."""
+
+    for _ in range(5):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401
+
+    blocked_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+
+
+def test_login_rate_limit_returns_retry_after(client, user):
+    """La respuesta HTTP 429 indica cuánto tiempo esperar."""
+
+    for _ in range(6):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    assert "retry-after" in response.headers
+
+    retry_after = int(response.headers["retry-after"])
+
+    assert retry_after > 0
+    assert retry_after <= 61
+
+
+def test_login_rate_limit_normalizes_email(client, user):
+    """Las variaciones de mayúsculas y espacios comparten el límite."""
+
+    emails = [
+        "ana.http@example.com",
+        "ANA.HTTP@EXAMPLE.COM",
+        "  ana.http@example.com  ",
+        "Ana.Http@Example.Com",
+        "ana.http@example.com",
+    ]
+
+    for email in emails:
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                email=email,
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401
+
+    blocked_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            email="ANA.HTTP@EXAMPLE.COM",
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+
+
+def test_login_rate_limit_does_not_expose_identifiers(client, user):
+    """La respuesta de bloqueo no revela IP, correo ni claves."""
+
+    for _ in range(6):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    body = response.json()
+
+    assert "ana.http@example.com" not in str(body)
+    assert "password" not in str(body).lower()
+    assert "key" not in body
