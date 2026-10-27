@@ -4,9 +4,13 @@
 import hashlib
 import hmac
 import ipaddress
+from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Iterator
 
 from fastapi import HTTPException, Request, status
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -19,6 +23,8 @@ from app.modules.auth.rate_limit_repository import (
 WINDOW_SECONDS = 60
 EMAIL_IP_LIMIT = 5
 IP_LIMIT = 30
+
+SessionFactory = Callable[[], Session]
 
 
 @dataclass(frozen=True)
@@ -33,8 +39,8 @@ def _client_ip(request: Request) -> str:
     """
     Obtiene la dirección del cliente desde la conexión.
 
-    No confía directamente en X-Forwarded-For porque ese
-    encabezado puede ser falsificado por el solicitante.
+    No confía directamente en X-Forwarded-For, ya que
+    ese encabezado puede ser falsificado.
     """
     if request.client is None:
         return "unknown"
@@ -48,7 +54,7 @@ def _client_ip(request: Request) -> str:
 
 
 def _rate_limit_key(*, category: str, identifier: str) -> str:
-    """Genera una clave HMAC sin exponer el identificador original."""
+    """Genera una clave HMAC para proteger el identificador."""
 
     message = f"{category}:{identifier}".encode("utf-8")
 
@@ -61,16 +67,27 @@ def _rate_limit_key(*, category: str, identifier: str) -> str:
     return f"{category}:{digest}"
 
 
+@contextmanager
+def _rate_limit_session(
+    session_factory: SessionFactory,
+) -> Iterator[Session]:
+    """Administra una sesión exclusiva para los contadores."""
+
+    with session_factory() as db:
+        yield db
+
+
 def check_login_rate_limit(
     *,
     request: Request,
     email: str,
+    session_factory: SessionFactory = SessionLocal,
 ) -> LoginRateLimitResult:
     """
-    Contabiliza la solicitud de inicio de sesión.
+    Contabiliza una solicitud de autenticación.
 
-    Cada contador se actualiza en una sesión independiente
-    de la sesión utilizada para autenticar al usuario.
+    La sesión de los contadores es independiente de la
+    sesión que consulta las credenciales del usuario.
     """
 
     ip = _client_ip(request)
@@ -86,7 +103,7 @@ def check_login_rate_limit(
         identifier=f"{ip}:{normalized_email}",
     )
 
-    with SessionLocal() as db:
+    with _rate_limit_session(session_factory) as db:
         ip_result: RateLimitResult = (
             rate_limit_repository.record_attempt(
                 db,
@@ -124,18 +141,23 @@ def enforce_login_rate_limit(
     *,
     request: Request,
     email: str,
+    session_factory: SessionFactory = SessionLocal,
 ) -> None:
-    """Rechaza solicitudes que superen los límites configurados."""
+    """Rechaza solicitudes que superen los límites establecidos."""
 
     result = check_login_rate_limit(
         request=request,
         email=email,
+        session_factory=session_factory,
     )
 
     if not result.allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Demasiados intentos de inicio de sesión. Intenta más tarde.",
+            detail=(
+                "Demasiados intentos de inicio de sesión. "
+                "Intenta más tarde."
+            ),
             headers={
                 "Retry-After": str(result.retry_after),
             },
