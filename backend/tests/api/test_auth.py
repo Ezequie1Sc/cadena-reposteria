@@ -1,11 +1,13 @@
 
 """Pruebas HTTP del endpoint POST /auth/login."""
 
+from datetime import datetime, timedelta, timezone
+
 import jwt
 import pytest
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, text, update
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -568,3 +570,72 @@ def test_login_rate_limit_does_not_expose_identifiers(client, user):
     assert "ana.http@example.com" not in str(body)
     assert "password" not in str(body).lower()
     assert "key" not in body
+
+
+# ============================================================
+# RATE LIMITING: LÍMITE GLOBAL Y EXPIRACIÓN
+# ============================================================
+
+
+def test_login_global_ip_limit_blocks_31st_request(client):
+    """Bloquea la solicitud 31 aunque los correos sean distintos."""
+
+    for attempt in range(30):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                email=f"usuario{attempt}@example.com",
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401, (
+            f"La solicitud {attempt + 1} fue bloqueada antes del límite"
+        )
+
+    blocked_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            email="usuario30@example.com",
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+    assert int(blocked_response.headers["retry-after"]) > 0
+
+
+def test_login_rate_limit_resets_after_expiration(client, db):
+    """Una ventana expirada permite iniciar un contador nuevo."""
+
+    for _ in range(6):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                email="expiracion@example.com",
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    expired_at = datetime.now(timezone.utc) - timedelta(
+        seconds=1
+    )
+
+    db.execute(
+        update(AuthRateLimit).values(
+            expires_at=expired_at,
+        )
+    )
+    db.commit()
+
+    new_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            email="expiracion@example.com",
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert new_response.status_code == 401
