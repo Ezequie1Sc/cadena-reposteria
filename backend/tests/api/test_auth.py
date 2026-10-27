@@ -9,11 +9,13 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes.auth import get_rate_limit_session_factory
 from app.core.config import settings
 from app.core.jwt import decode_access_token
 from app.core.security import hash_password
 from app.db.session import Base, get_db
 from app.main import app
+from app.modules.auth.rate_limit_model import AuthRateLimit
 from app.modules.users.model import User
 from app.shared.models.role_reference import roles_reference
 
@@ -49,6 +51,7 @@ def db():
         tables=[
             roles_reference,
             User.__table__,
+            AuthRateLimit.__table__,
         ],
     )
 
@@ -74,14 +77,14 @@ def db():
             )
         )
 
-    SessionLocal = sessionmaker(
+    TestSessionLocal = sessionmaker(
         bind=engine,
         autoflush=False,
         expire_on_commit=False,
     )
 
     try:
-        with SessionLocal() as session:
+        with TestSessionLocal() as session:
             yield session
     finally:
         engine.dispose()
@@ -109,18 +112,34 @@ def user(db):
 
 @pytest.fixture
 def client(db):
-    """Crea un cliente HTTP con la base de datos de prueba."""
+    """Crea un cliente HTTP aislado de PostgreSQL."""
 
     def override_get_db():
         yield db
 
+    test_session_factory = sessionmaker(
+        bind=db.get_bind(),
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    def override_rate_limit_session_factory():
+        return test_session_factory
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[
+        get_rate_limit_session_factory
+    ] = override_rate_limit_session_factory
 
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(
+            get_rate_limit_session_factory,
+            None,
+        )
 
 
 # ============================================================
