@@ -132,11 +132,12 @@ def create_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Registra un usuario con contraseña protegida."""
+    """Registra un usuario mediante un administrador autorizado."""
 
     return user_service.create_user(
         db=db,
         data=data,
+        actor_id=admin.id,
     )
 
 
@@ -211,9 +212,10 @@ def reactivate_user(
     db: DbSession,
     admin: AdminUser,
 ) -> UserResponse:
-    """Reactiva un usuario si su rol continúa activo."""
+    """Reactiva un usuario mediante un administrador autorizado."""
 
     return user_service.reactivate_user(
         db=db,
         user_id=user_id,
+        actor_id=admin.id,
     )

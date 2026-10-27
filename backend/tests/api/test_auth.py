@@ -1,19 +1,23 @@
 
 """Pruebas HTTP del endpoint POST /auth/login."""
 
+from datetime import datetime, timedelta, timezone
+
 import jwt
 import pytest
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, text, update
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes.auth import get_rate_limit_session_factory
 from app.core.config import settings
 from app.core.jwt import decode_access_token
 from app.core.security import hash_password
 from app.db.session import Base, get_db
 from app.main import app
+from app.modules.auth.rate_limit_model import AuthRateLimit
 from app.modules.users.model import User
 from app.shared.models.role_reference import roles_reference
 
@@ -49,6 +53,7 @@ def db():
         tables=[
             roles_reference,
             User.__table__,
+            AuthRateLimit.__table__,
         ],
     )
 
@@ -74,14 +79,14 @@ def db():
             )
         )
 
-    SessionLocal = sessionmaker(
+    TestSessionLocal = sessionmaker(
         bind=engine,
         autoflush=False,
         expire_on_commit=False,
     )
 
     try:
-        with SessionLocal() as session:
+        with TestSessionLocal() as session:
             yield session
     finally:
         engine.dispose()
@@ -109,18 +114,34 @@ def user(db):
 
 @pytest.fixture
 def client(db):
-    """Crea un cliente HTTP con la base de datos de prueba."""
+    """Crea un cliente HTTP aislado de PostgreSQL."""
 
     def override_get_db():
         yield db
 
+    test_session_factory = sessionmaker(
+        bind=db.get_bind(),
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    def override_rate_limit_session_factory():
+        return test_session_factory
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[
+        get_rate_limit_session_factory
+    ] = override_rate_limit_session_factory
 
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(
+            get_rate_limit_session_factory,
+            None,
+        )
 
 
 # ============================================================
@@ -433,3 +454,188 @@ def test_login_endpoint_has_authentication_tag(client):
     operation = response.json()["paths"]["/auth/login"]["post"]
 
     assert "Autenticación" in operation["tags"]
+
+
+# ============================================================
+# RATE LIMITING
+# ============================================================
+
+
+def test_login_allows_five_requests_for_same_email(client, user):
+    """Permite cinco solicitudes dentro de la ventana."""
+
+    for _ in range(5):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401
+
+
+def test_login_sixth_request_returns_429(client, user):
+    """La sexta solicitud de la misma IP y correo se bloquea."""
+
+    for _ in range(5):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401
+
+    blocked_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+
+
+def test_login_rate_limit_returns_retry_after(client, user):
+    """La respuesta HTTP 429 indica cuánto tiempo esperar."""
+
+    for _ in range(6):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    assert "retry-after" in response.headers
+
+    retry_after = int(response.headers["retry-after"])
+
+    assert retry_after > 0
+    assert retry_after <= 61
+
+
+def test_login_rate_limit_normalizes_email(client, user):
+    """Las variaciones de mayúsculas y espacios comparten el límite."""
+
+    emails = [
+        "ana.http@example.com",
+        "ANA.HTTP@EXAMPLE.COM",
+        "  ana.http@example.com  ",
+        "Ana.Http@Example.Com",
+        "ana.http@example.com",
+    ]
+
+    for email in emails:
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                email=email,
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401
+
+    blocked_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            email="ANA.HTTP@EXAMPLE.COM",
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+
+
+def test_login_rate_limit_does_not_expose_identifiers(client, user):
+    """La respuesta de bloqueo no revela IP, correo ni claves."""
+
+    for _ in range(6):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    body = response.json()
+
+    assert "ana.http@example.com" not in str(body)
+    assert "password" not in str(body).lower()
+    assert "key" not in body
+
+
+# ============================================================
+# RATE LIMITING: LÍMITE GLOBAL Y EXPIRACIÓN
+# ============================================================
+
+
+def test_login_global_ip_limit_blocks_31st_request(client):
+    """Bloquea la solicitud 31 aunque los correos sean distintos."""
+
+    for attempt in range(30):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                email=f"usuario{attempt}@example.com",
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+        assert response.status_code == 401, (
+            f"La solicitud {attempt + 1} fue bloqueada antes del límite"
+        )
+
+    blocked_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            email="usuario30@example.com",
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+    assert int(blocked_response.headers["retry-after"]) > 0
+
+
+def test_login_rate_limit_resets_after_expiration(client, db):
+    """Una ventana expirada permite iniciar un contador nuevo."""
+
+    for _ in range(6):
+        response = client.post(
+            "/auth/login",
+            json=login_payload(
+                email="expiracion@example.com",
+                password="PasswordIncorrecta2026!",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    expired_at = datetime.now(timezone.utc) - timedelta(
+        seconds=1
+    )
+
+    db.execute(
+        update(AuthRateLimit).values(
+            expires_at=expired_at,
+        )
+    )
+    db.commit()
+
+    new_response = client.post(
+        "/auth/login",
+        json=login_payload(
+            email="expiracion@example.com",
+            password="PasswordIncorrecta2026!",
+        ),
+    )
+
+    assert new_response.status_code == 401

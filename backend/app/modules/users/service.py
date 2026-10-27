@@ -1,4 +1,3 @@
-
 """Lógica de negocio para la administración de usuarios."""
 
 from fastapi import HTTPException
@@ -112,8 +111,8 @@ class UserService:
         """
         Verifica que el actor exista y sea un administrador activo.
 
-        Esta validación protege también las llamadas internas
-        al servicio, independientemente de la autorización HTTP.
+        Protege las llamadas internas al servicio,
+        independientemente de la autorización HTTP.
         """
 
         if (
@@ -289,10 +288,17 @@ class UserService:
         self,
         db: Session,
         data: UserCreate,
+        *,
+        actor_id: int,
     ) -> UserResponse:
-        """Registra un usuario con contraseña protegida."""
+        """Registra un usuario mediante un administrador autorizado."""
 
         try:
+            self._validate_admin_actor(
+                db,
+                actor_id,
+            )
+
             self._validate_role(
                 db,
                 data.rol_id,
@@ -525,10 +531,17 @@ class UserService:
         self,
         db: Session,
         user_id: int,
+        *,
+        actor_id: int,
     ) -> UserResponse:
-        """Reactiva un usuario si su rol continúa activo."""
+        """Reactiva un usuario mediante un administrador autorizado."""
 
         try:
+            self._validate_admin_actor(
+                db,
+                actor_id,
+            )
+
             user = user_repository.get_by_id(
                 db,
                 user_id,
