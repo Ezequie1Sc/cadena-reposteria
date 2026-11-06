@@ -1,22 +1,31 @@
 
 """Pruebas HTTP del registro público de clientes."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, select, text
+from sqlalchemy import create_engine, event, select, text, update
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes.auth import get_rate_limit_session_factory
 from app.core.security import verify_password
 from app.db.session import Base, get_db
 from app.main import app
+from app.modules.auth.rate_limit_model import AuthRateLimit
 from app.modules.users.model import User
 from app.shared.models.role_reference import roles_reference
 
 
 PASSWORD = "PasswordSegura2026!"
 REGISTER_URL = "/auth/register"
+
+
+# ============================================================
+# FIXTURES
+# ============================================================
 
 
 @pytest.fixture
@@ -38,6 +47,7 @@ def db():
         tables=[
             roles_reference,
             User.__table__,
+            AuthRateLimit.__table__,
         ],
     )
 
@@ -45,10 +55,12 @@ def db():
         connection.exec_driver_sql(
             "ALTER TABLE roles ADD COLUMN nombre VARCHAR(50)"
         )
+
         connection.exec_driver_sql(
             "ALTER TABLE roles "
             "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
         )
+
         connection.execute(
             text(
                 "INSERT INTO roles (id, nombre, activo) VALUES "
@@ -73,18 +85,46 @@ def db():
 
 @pytest.fixture
 def client(db):
-    """Crea un cliente HTTP sin utilizar Supabase."""
+    """
+    Crea un cliente HTTP aislado de Supabase.
+
+    Tanto el registro como los contadores de rate limiting
+    utilizan SQLite en memoria.
+    """
 
     def override_get_db():
         yield db
 
+    test_session_factory = sessionmaker(
+        bind=db.get_bind(),
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    def override_rate_limit_session_factory():
+        return test_session_factory
+
     app.dependency_overrides[get_db] = override_get_db
+
+    app.dependency_overrides[
+        get_rate_limit_session_factory
+    ] = override_rate_limit_session_factory
 
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+        app.dependency_overrides.pop(
+            get_rate_limit_session_factory,
+            None,
+        )
+
+
+# ============================================================
+# UTILIDADES
+# ============================================================
 
 
 def registration_payload(**changes):
@@ -99,7 +139,13 @@ def registration_payload(**changes):
     }
 
     payload.update(changes)
+
     return payload
+
+
+# ============================================================
+# REGISTRO EXITOSO
+# ============================================================
 
 
 def test_register_returns_201(client):
@@ -192,7 +238,13 @@ def test_register_normalizes_email(client, db):
 
     user = db.scalar(select(User))
 
+    assert user is not None
     assert user.email == "ana.registro@example.com"
+
+
+# ============================================================
+# CORREOS DUPLICADOS
+# ============================================================
 
 
 def test_register_duplicate_email_returns_409(client, db):
@@ -212,6 +264,7 @@ def test_register_duplicate_email_returns_409(client, db):
     assert second_response.status_code == 409
 
     users = db.scalars(select(User)).all()
+
     assert len(users) == 1
 
 
@@ -232,6 +285,11 @@ def test_register_duplicate_email_is_case_insensitive(client):
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
+
+
+# ============================================================
+# VALIDACIÓN DE DATOS
+# ============================================================
 
 
 @pytest.mark.parametrize(
@@ -286,6 +344,11 @@ def test_register_missing_required_field_returns_422(
     assert response.status_code == 422
 
 
+# ============================================================
+# SEGURIDAD DE ROLES
+# ============================================================
+
+
 def test_register_rejects_role_assignment(client, db):
     """Un solicitante no puede asignarse el rol Administrador."""
 
@@ -313,6 +376,11 @@ def test_register_rejects_admin_flags(client, db):
     assert db.scalar(select(User)) is None
 
 
+# ============================================================
+# VALIDACIÓN DEL ROL CLIENTE
+# ============================================================
+
+
 def test_register_inactive_customer_role_returns_503(
     client,
     db,
@@ -324,6 +392,7 @@ def test_register_inactive_customer_role_returns_503(
             "UPDATE roles SET activo = 0 WHERE id = 3"
         )
     )
+
     db.commit()
 
     response = client.post(
@@ -344,6 +413,7 @@ def test_register_missing_customer_role_returns_503(
     db.execute(
         text("DELETE FROM roles WHERE id = 3")
     )
+
     db.commit()
 
     response = client.post(
@@ -353,6 +423,11 @@ def test_register_missing_customer_role_returns_503(
 
     assert response.status_code == 503
     assert db.scalar(select(User)) is None
+
+
+# ============================================================
+# CAMPOS OPCIONALES
+# ============================================================
 
 
 def test_register_without_phone_returns_201(client, db):
@@ -368,6 +443,11 @@ def test_register_without_phone_returns_201(client, db):
 
     assert response.status_code == 201
     assert response.json()["telefono"] is None
+
+
+# ============================================================
+# DOCUMENTACIÓN OPENAPI
+# ============================================================
 
 
 def test_register_is_documented_in_openapi(client):
@@ -386,3 +466,123 @@ def test_register_is_documented_in_openapi(client):
 
     assert operation["responses"]["201"]
     assert "Autenticación" in operation["tags"]
+    assert "429" in operation["responses"]
+
+
+# ============================================================
+# RATE LIMITING
+# ============================================================
+
+
+def test_register_allows_five_requests_per_ip(client):
+    """Permite cinco solicitudes de registro dentro de una hora."""
+
+    for attempt in range(5):
+        response = client.post(
+            REGISTER_URL,
+            json=registration_payload(
+                email=f"cliente{attempt}@example.com",
+            ),
+        )
+
+        assert response.status_code == 201
+
+
+def test_register_sixth_request_returns_429(client):
+    """La sexta solicitud de la misma IP queda bloqueada."""
+
+    for attempt in range(5):
+        response = client.post(
+            REGISTER_URL,
+            json=registration_payload(
+                email=f"cliente{attempt}@example.com",
+            ),
+        )
+
+        assert response.status_code == 201
+
+    blocked_response = client.post(
+        REGISTER_URL,
+        json=registration_payload(
+            email="cliente5@example.com",
+        ),
+    )
+
+    assert blocked_response.status_code == 429
+
+
+def test_register_rate_limit_returns_retry_after(client):
+    """El bloqueo incluye el tiempo restante de espera."""
+
+    for attempt in range(6):
+        response = client.post(
+            REGISTER_URL,
+            json=registration_payload(
+                email=f"cliente{attempt}@example.com",
+            ),
+        )
+
+    assert response.status_code == 429
+    assert "retry-after" in response.headers
+
+    retry_after = int(response.headers["retry-after"])
+
+    assert retry_after > 0
+    assert retry_after <= 3601
+
+
+def test_register_rate_limit_counts_duplicate_emails(client):
+    """Los registros duplicados también consumen intentos."""
+
+    for attempt in range(5):
+        response = client.post(
+            REGISTER_URL,
+            json=registration_payload(),
+        )
+
+        if attempt == 0:
+            assert response.status_code == 201
+        else:
+            assert response.status_code == 409
+
+    blocked_response = client.post(
+        REGISTER_URL,
+        json=registration_payload(),
+    )
+
+    assert blocked_response.status_code == 429
+
+
+def test_register_rate_limit_resets_after_expiration(client, db):
+    """Una ventana expirada permite registrar nuevamente."""
+
+    for attempt in range(6):
+        response = client.post(
+            REGISTER_URL,
+            json=registration_payload(
+                email=f"cliente{attempt}@example.com",
+            ),
+        )
+
+    assert response.status_code == 429
+
+    expired_at = datetime.now(timezone.utc) - timedelta(
+        seconds=1
+    )
+
+    db.execute(
+        update(AuthRateLimit).values(
+            expires_at=expired_at,
+        )
+    )
+
+    db.commit()
+
+    new_response = client.post(
+        REGISTER_URL,
+        json=registration_payload(
+            email="cliente6@example.com",
+        ),
+    )
+
+    assert new_response.status_code == 201
