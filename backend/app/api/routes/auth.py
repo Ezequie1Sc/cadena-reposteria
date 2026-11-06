@@ -1,9 +1,9 @@
 
-"""Endpoints de autenticación de usuarios."""
+"""Endpoints de autenticación y registro de usuarios."""
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -11,8 +11,16 @@ from app.core.login import login_user
 from app.core.rate_limit import (
     SessionFactory,
     enforce_login_rate_limit,
+    enforce_registration_rate_limit,
 )
 from app.db.session import SessionLocal, get_db
+from app.modules.auth.registration_schemas import (
+    CustomerRegistrationRequest,
+    CustomerRegistrationResponse,
+)
+from app.modules.auth.registration_service import (
+    customer_registration_service,
+)
 
 
 router = APIRouter(
@@ -46,7 +54,10 @@ class TokenResponse(BaseModel):
     token_type: Literal["bearer"] = "bearer"
 
 
-DbSession = Annotated[Session, Depends(get_db)]
+DbSession = Annotated[
+    Session,
+    Depends(get_db),
+]
 
 
 def get_rate_limit_session_factory() -> SessionFactory:
@@ -110,4 +121,56 @@ def login(
     return TokenResponse(
         access_token=result.access_token,
         token_type=result.token_type,
+    )
+
+
+@router.post(
+    "/register",
+    response_model=CustomerRegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar cliente",
+    description=(
+        "Permite crear una cuenta de cliente sin autenticación previa. "
+        "Asigna automáticamente el rol Cliente, almacena la contraseña "
+        "mediante Argon2id y limita las solicitudes por IP."
+    ),
+    responses={
+        409: {
+            "description": (
+                "Ya existe un usuario con el correo electrónico indicado"
+            )
+        },
+        422: {
+            "description": "Datos de registro inválidos"
+        },
+        429: {
+            "description": (
+                "Demasiadas solicitudes de registro. "
+                "Incluye la cabecera Retry-After."
+            )
+        },
+        503: {
+            "description": (
+                "El registro no está disponible porque el rol "
+                "Cliente no existe o está inactivo"
+            )
+        },
+    },
+)
+def register_customer(
+    data: CustomerRegistrationRequest,
+    request: Request,
+    db: DbSession,
+    rate_limit_session_factory: RateLimitSessionFactory,
+) -> CustomerRegistrationResponse:
+    """Registra una cuenta de cliente con protección por IP."""
+
+    enforce_registration_rate_limit(
+        request=request,
+        session_factory=rate_limit_session_factory,
+    )
+
+    return customer_registration_service.register_customer(
+        db=db,
+        data=data,
     )

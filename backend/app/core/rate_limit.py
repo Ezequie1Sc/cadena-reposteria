@@ -4,6 +4,7 @@
 import hashlib
 import hmac
 import ipaddress
+
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -24,6 +25,9 @@ WINDOW_SECONDS = 60
 EMAIL_IP_LIMIT = 5
 IP_LIMIT = 30
 
+REGISTRATION_WINDOW_SECONDS = 3600
+REGISTRATION_IP_LIMIT = 5
+
 SessionFactory = Callable[[], Session]
 
 
@@ -37,11 +41,12 @@ class LoginRateLimitResult:
 
 def _client_ip(request: Request) -> str:
     """
-    Obtiene la dirección del cliente desde la conexión.
+    Obtiene la dirección IP desde la conexión.
 
-    No confía directamente en X-Forwarded-For, ya que
-    ese encabezado puede ser falsificado.
+    No confía directamente en X-Forwarded-For,
+    porque el encabezado puede ser falsificado.
     """
+
     if request.client is None:
         return "unknown"
 
@@ -53,7 +58,11 @@ def _client_ip(request: Request) -> str:
         return host
 
 
-def _rate_limit_key(*, category: str, identifier: str) -> str:
+def _rate_limit_key(
+    *,
+    category: str,
+    identifier: str,
+) -> str:
     """Genera una clave HMAC para proteger el identificador."""
 
     message = f"{category}:{identifier}".encode("utf-8")
@@ -84,10 +93,10 @@ def check_login_rate_limit(
     session_factory: SessionFactory = SessionLocal,
 ) -> LoginRateLimitResult:
     """
-    Contabiliza una solicitud de autenticación.
+    Contabiliza una solicitud de inicio de sesión.
 
-    La sesión de los contadores es independiente de la
-    sesión que consulta las credenciales del usuario.
+    Utiliza contadores independientes para IP
+    y para la combinación IP/correo.
     """
 
     ip = _client_ip(request)
@@ -143,7 +152,7 @@ def enforce_login_rate_limit(
     email: str,
     session_factory: SessionFactory = SessionLocal,
 ) -> None:
-    """Rechaza solicitudes que superen los límites establecidos."""
+    """Rechaza solicitudes que superen los límites de login."""
 
     result = check_login_rate_limit(
         request=request,
@@ -157,6 +166,62 @@ def enforce_login_rate_limit(
             detail=(
                 "Demasiados intentos de inicio de sesión. "
                 "Intenta más tarde."
+            ),
+            headers={
+                "Retry-After": str(result.retry_after),
+            },
+        )
+
+
+def check_registration_rate_limit(
+    *,
+    request: Request,
+    session_factory: SessionFactory = SessionLocal,
+) -> RateLimitResult:
+    """
+    Contabiliza una solicitud de registro por IP.
+
+    Utiliza una categoría independiente de los
+    contadores del inicio de sesión.
+
+    El repositorio mantiene los contadores persistentes
+    y utiliza operaciones atómicas en PostgreSQL.
+    """
+
+    ip = _client_ip(request)
+
+    registration_key = _rate_limit_key(
+        category="register_ip",
+        identifier=ip,
+    )
+
+    with _rate_limit_session(session_factory) as db:
+        return rate_limit_repository.record_attempt(
+            db,
+            key=registration_key,
+            limit=REGISTRATION_IP_LIMIT,
+            window_seconds=REGISTRATION_WINDOW_SECONDS,
+        )
+
+
+def enforce_registration_rate_limit(
+    *,
+    request: Request,
+    session_factory: SessionFactory = SessionLocal,
+) -> None:
+    """Rechaza registros que superen el límite por IP."""
+
+    result = check_registration_rate_limit(
+        request=request,
+        session_factory=session_factory,
+    )
+
+    if not result.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Demasiadas solicitudes de registro. "
+                "Intenta nuevamente más tarde."
             ),
             headers={
                 "Retry-After": str(result.retry_after),
