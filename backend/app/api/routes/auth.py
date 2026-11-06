@@ -11,6 +11,7 @@ from app.core.login import login_user
 from app.core.rate_limit import (
     SessionFactory,
     enforce_login_rate_limit,
+    enforce_registration_rate_limit,
 )
 from app.db.session import SessionLocal, get_db
 from app.modules.auth.registration_schemas import (
@@ -130,8 +131,8 @@ def login(
     summary="Registrar cliente",
     description=(
         "Permite crear una cuenta de cliente sin autenticación previa. "
-        "El sistema asigna automáticamente el rol Cliente y almacena "
-        "la contraseña mediante Argon2id."
+        "Asigna automáticamente el rol Cliente, almacena la contraseña "
+        "mediante Argon2id y limita las solicitudes por IP."
     ),
     responses={
         409: {
@@ -141,6 +142,12 @@ def login(
         },
         422: {
             "description": "Datos de registro inválidos"
+        },
+        429: {
+            "description": (
+                "Demasiadas solicitudes de registro. "
+                "Incluye la cabecera Retry-After."
+            )
         },
         503: {
             "description": (
@@ -152,9 +159,16 @@ def login(
 )
 def register_customer(
     data: CustomerRegistrationRequest,
+    request: Request,
     db: DbSession,
+    rate_limit_session_factory: RateLimitSessionFactory,
 ) -> CustomerRegistrationResponse:
-    """Registra una cuenta con el rol Cliente."""
+    """Registra una cuenta de cliente con protección por IP."""
+
+    enforce_registration_rate_limit(
+        request=request,
+        session_factory=rate_limit_session_factory,
+    )
 
     return customer_registration_service.register_customer(
         db=db,
