@@ -8,12 +8,15 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     DateTime,
     ForeignKey,
+    Identity,
     Integer,
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,50 +29,86 @@ class Order(Base):
 
     __tablename__ = "pedidos"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "numero_pedido",
+            name="pedidos_numero_pedido_key",
+        ),
+        CheckConstraint(
+            "estado IN ("
+            "'PENDIENTE', "
+            "'CONFIRMADO', "
+            "'PREPARANDO', "
+            "'LISTO', "
+            "'ENTREGADO', "
+            "'CANCELADO'"
+            ")",
+            name="pedidos_estado_check",
+        ),
+        CheckConstraint(
+            "subtotal >= 0",
+            name="pedidos_subtotal_check",
+        ),
+        CheckConstraint(
+            "descuento >= 0",
+            name="pedidos_descuento_check",
+        ),
+        CheckConstraint(
+            "total >= 0",
+            name="pedidos_total_check",
+        ),
+    )
+
     id: Mapped[int] = mapped_column(
         BigInteger().with_variant(Integer, "sqlite"),
+        Identity(always=True),
         primary_key=True,
-        autoincrement=True,
     )
 
     numero_pedido: Mapped[str] = mapped_column(
-        String,
+        String(40),
         nullable=False,
     )
 
     cliente_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("clientes.id"),
+        ForeignKey(
+            "clientes.id",
+            name="pedidos_cliente_id_fkey",
+        ),
         nullable=False,
     )
 
     sucursal_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("sucursales.id"),
+        ForeignKey(
+            "sucursales.id",
+            name="pedidos_sucursal_id_fkey",
+        ),
         nullable=False,
     )
 
     estado: Mapped[str] = mapped_column(
-        String,
+        String(20),
         nullable=False,
         default="PENDIENTE",
         server_default="PENDIENTE",
     )
 
     subtotal: Mapped[Decimal] = mapped_column(
-        Numeric,
+        Numeric(12, 2),
         nullable=False,
     )
 
     descuento: Mapped[Decimal] = mapped_column(
-        Numeric,
+        Numeric(12, 2),
         nullable=False,
-        default=Decimal("0"),
+        default=Decimal("0.00"),
         server_default="0",
     )
 
     total: Mapped[Decimal] = mapped_column(
-        Numeric,
+        Numeric(12, 2),
         nullable=False,
     )
 
@@ -113,21 +152,46 @@ class OrderDetail(Base):
 
     __tablename__ = "detalle_pedidos"
 
+    __table_args__ = (
+        CheckConstraint(
+            "cantidad > 0",
+            name="detalle_pedidos_cantidad_check",
+        ),
+        CheckConstraint(
+            "precio_unitario >= 0",
+            name="detalle_pedidos_precio_unitario_check",
+        ),
+        CheckConstraint(
+            "descuento >= 0",
+            name="detalle_pedidos_descuento_check",
+        ),
+        CheckConstraint(
+            "subtotal >= 0",
+            name="detalle_pedidos_subtotal_check",
+        ),
+    )
+
     id: Mapped[int] = mapped_column(
         BigInteger().with_variant(Integer, "sqlite"),
+        Identity(always=True),
         primary_key=True,
-        autoincrement=True,
     )
 
     pedido_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("pedidos.id"),
+        ForeignKey(
+            "pedidos.id",
+            name="detalle_pedidos_pedido_id_fkey",
+        ),
         nullable=False,
     )
 
     producto_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("productos.id"),
+        ForeignKey(
+            "productos.id",
+            name="detalle_pedidos_producto_id_fkey",
+        ),
         nullable=False,
     )
 
@@ -137,19 +201,19 @@ class OrderDetail(Base):
     )
 
     precio_unitario: Mapped[Decimal] = mapped_column(
-        Numeric,
+        Numeric(12, 2),
         nullable=False,
     )
 
     descuento: Mapped[Decimal] = mapped_column(
-        Numeric,
+        Numeric(12, 2),
         nullable=False,
-        default=Decimal("0"),
+        default=Decimal("0.00"),
         server_default="0",
     )
 
     subtotal: Mapped[Decimal] = mapped_column(
-        Numeric,
+        Numeric(12, 2),
         nullable=False,
     )
 
