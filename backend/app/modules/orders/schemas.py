@@ -5,15 +5,20 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 
 class OrderStatus(str, Enum):
-    """Estados de un pedido."""
+    """Estados permitidos para un pedido."""
 
     PENDIENTE = "PENDIENTE"
     CONFIRMADO = "CONFIRMADO"
-    EN_PREPARACION = "EN_PREPARACION"
+    PREPARANDO = "PREPARANDO"
     LISTO = "LISTO"
     ENTREGADO = "ENTREGADO"
     CANCELADO = "CANCELADO"
@@ -53,7 +58,7 @@ class OrderCreate(BaseModel):
         cls,
         products: list[OrderItemCreate],
     ) -> list[OrderItemCreate]:
-        """Evitar productos duplicados en el mismo pedido."""
+        """Evitar productos duplicados en un mismo pedido."""
 
         product_ids = [
             product.producto_id
