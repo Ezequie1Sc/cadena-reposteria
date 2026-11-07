@@ -24,6 +24,7 @@ from app.modules.customers.routes import router as customers_router
 from app.modules.employees.routes import router as employees_router
 from app.modules.users.routes import router as users_router
 from app.modules.inventory.routes import router as inventory_router
+from app.modules.orders.routes import router as orders_router
 
 
 # ============================================================
@@ -61,6 +62,7 @@ app.include_router(customers_router)
 app.include_router(employees_router)
 app.include_router(users_router)
 app.include_router(inventory_router)
+app.include_router(orders_router)
 
 
 # ============================================================
