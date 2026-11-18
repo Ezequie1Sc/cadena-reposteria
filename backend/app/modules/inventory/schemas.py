@@ -16,12 +16,16 @@ class MovementType(str, Enum):
 
 
 class InventoryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     producto_id: int = Field(gt=0)
     sucursal_id: int = Field(gt=0)
     stock_minimo: int = Field(default=0, ge=0)
 
 
 class InventoryUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     stock_minimo: int = Field(ge=0)
 
 
@@ -42,6 +46,8 @@ class InventoryListResponse(BaseModel):
 
 
 class InventoryMovementCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cantidad: int = Field(gt=0)
     motivo: str | None = Field(
         default=None,
@@ -50,11 +56,15 @@ class InventoryMovementCreate(BaseModel):
 
 
 class InventoryAdjustmentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cantidad_final: int = Field(ge=0)
     motivo: str = Field(min_length=1, max_length=255)
 
 
 class InventoryTransferCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     sucursal_destino_id: int = Field(gt=0)
     cantidad: int = Field(gt=0)
     motivo: str | None = Field(

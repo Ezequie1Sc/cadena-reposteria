@@ -16,7 +16,13 @@ from logging.config import fileConfig
 
 from alembic import context
 
-from app.db.session import Base, engine
+from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
+from app.core.config import settings
+from app.db.session import Base
+
+# Application sessions never consume the migration credential.
+migration_url = settings.migration_database_url or settings.database_url
 
 # Registrar los modelos ORM y las tablas de referencia.
 import app.db.models  # noqa: F401
@@ -90,7 +96,7 @@ def run_migrations_offline() -> None:
     """
 
     context.configure(
-        url=engine.url,
+        url=migration_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -110,7 +116,8 @@ def run_migrations_online() -> None:
     configurada en app/db/session.py.
     """
 
-    with engine.connect() as connection:
+    migration_engine = create_engine(migration_url, poolclass=NullPool, hide_parameters=True)
+    with migration_engine.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

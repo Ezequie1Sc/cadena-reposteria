@@ -1,4 +1,3 @@
-
 """Pruebas HTTP del registro público de clientes."""
 
 from datetime import datetime, timedelta, timezone
@@ -16,6 +15,7 @@ from app.db.session import Base, get_db
 from app.main import app
 from app.modules.auth.rate_limit_model import AuthRateLimit
 from app.modules.users.model import User
+from app.modules.customers.model import Customer
 from app.shared.models.role_reference import roles_reference
 
 
@@ -47,18 +47,16 @@ def db():
         tables=[
             roles_reference,
             User.__table__,
+            Customer.__table__,
             AuthRateLimit.__table__,
         ],
     )
 
     with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "ALTER TABLE roles ADD COLUMN nombre VARCHAR(50)"
-        )
+        connection.exec_driver_sql("ALTER TABLE roles ADD COLUMN nombre VARCHAR(50)")
 
         connection.exec_driver_sql(
-            "ALTER TABLE roles "
-            "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
+            "ALTER TABLE roles ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
         )
 
         connection.execute(
@@ -106,9 +104,9 @@ def client(db):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    app.dependency_overrides[
-        get_rate_limit_session_factory
-    ] = override_rate_limit_session_factory
+    app.dependency_overrides[get_rate_limit_session_factory] = (
+        override_rate_limit_session_factory
+    )
 
     try:
         with TestClient(app) as test_client:
@@ -169,11 +167,7 @@ def test_register_creates_customer_role(client, db):
 
     assert response.status_code == 201
 
-    user = db.scalar(
-        select(User).where(
-            User.email == "ana.registro@example.com"
-        )
-    )
+    user = db.scalar(select(User).where(User.email == "ana.registro@example.com"))
 
     assert user is not None
     assert user.rol_id == 3
@@ -229,9 +223,7 @@ def test_register_normalizes_email(client, db):
 
     response = client.post(
         REGISTER_URL,
-        json=registration_payload(
-            email="ANA.REGISTRO@EXAMPLE.COM"
-        ),
+        json=registration_payload(email="ANA.REGISTRO@EXAMPLE.COM"),
     )
 
     assert response.status_code == 201
@@ -278,9 +270,7 @@ def test_register_duplicate_email_is_case_insensitive(client):
 
     second_response = client.post(
         REGISTER_URL,
-        json=registration_payload(
-            email="ANA.REGISTRO@EXAMPLE.COM"
-        ),
+        json=registration_payload(email="ANA.REGISTRO@EXAMPLE.COM"),
     )
 
     assert first_response.status_code == 201
@@ -387,11 +377,7 @@ def test_register_inactive_customer_role_returns_503(
 ):
     """No registra clientes cuando el rol está desactivado."""
 
-    db.execute(
-        text(
-            "UPDATE roles SET activo = 0 WHERE id = 3"
-        )
-    )
+    db.execute(text("UPDATE roles SET activo = 0 WHERE id = 3"))
 
     db.commit()
 
@@ -410,9 +396,7 @@ def test_register_missing_customer_role_returns_503(
 ):
     """No registra clientes si el rol Cliente no existe."""
 
-    db.execute(
-        text("DELETE FROM roles WHERE id = 3")
-    )
+    db.execute(text("DELETE FROM roles WHERE id = 3"))
 
     db.commit()
 
@@ -566,9 +550,7 @@ def test_register_rate_limit_resets_after_expiration(client, db):
 
     assert response.status_code == 429
 
-    expired_at = datetime.now(timezone.utc) - timedelta(
-        seconds=1
-    )
+    expired_at = datetime.now(timezone.utc) - timedelta(seconds=1)
 
     db.execute(
         update(AuthRateLimit).values(

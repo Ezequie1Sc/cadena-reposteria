@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from app.core.auth import get_current_user
 
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
@@ -48,6 +50,8 @@ def valid_payload():
 def client():
     app = FastAPI()
     app.include_router(router)
+    # Authorized actor for existing route/service unit scenarios.
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1, rol_id=1, activo=True)
 
     fake_db = Mock()
 

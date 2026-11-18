@@ -15,7 +15,7 @@ class CustomerRegistrationRequest(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid",
-        str_strip_whitespace=True,
+        str_strip_whitespace=False,
     )
 
     nombre: str = Field(

@@ -40,6 +40,9 @@ def authentication_error() -> HTTPException:
 def validate_active_role(db: Session, role_id: int) -> None:
     """Comprueba que el rol del usuario exista y esté activo."""
 
+    if role_id not in {1, 2, 3}:
+        raise HTTPException(status_code=403, detail="El usuario no tiene un rol válido")
+
     role_exists = db.scalar(
         select(roles_reference.c.id).where(
             roles_reference.c.id == role_id

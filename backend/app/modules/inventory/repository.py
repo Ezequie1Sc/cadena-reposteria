@@ -53,7 +53,7 @@ class InventoryRepository:
         )
 
         if for_update:
-            statement = statement.with_for_update()
+            statement = statement.with_for_update().execution_options(populate_existing=True)
 
         return db.scalar(statement)
 
@@ -71,7 +71,7 @@ class InventoryRepository:
         )
 
         if for_update:
-            statement = statement.with_for_update()
+            statement = statement.with_for_update().execution_options(populate_existing=True)
 
         return db.scalar(statement)
 

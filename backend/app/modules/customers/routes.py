@@ -1,3 +1,5 @@
+from app.core.auth import CurrentUser
+from app.core.permissions import AdminUser, require_customer_access
 
 import logging
 from typing import Annotated
@@ -61,6 +63,7 @@ CustomerServiceDependency = Annotated[
     },
 )
 def get_customers(
+    actor: AdminUser,
     service: CustomerServiceDependency,
     page: int = Query(
         default=1,
@@ -119,10 +122,13 @@ def get_customers(
     },
 )
 def get_customer(
+    actor: CurrentUser,
     service: CustomerServiceDependency,
     customer_id: int = Path(gt=0),
 ):
     """Consulta un cliente activo o inactivo por su ID."""
+
+    require_customer_access(service.db, actor, customer_id)
 
     try:
         return service.get_by_id(customer_id)
@@ -160,6 +166,7 @@ def get_customer(
     },
 )
 def create_customer(
+    actor: AdminUser,
     data: CustomerCreate,
     service: CustomerServiceDependency,
 ):
@@ -204,11 +211,14 @@ def create_customer(
     },
 )
 def update_customer(
+    actor: CurrentUser,
     data: CustomerUpdate,
     service: CustomerServiceDependency,
     customer_id: int = Path(gt=0),
 ):
     """Actualiza parcialmente los datos de un cliente."""
+
+    require_customer_access(service.db, actor, customer_id, changes=data.model_fields_set)
 
     try:
         return service.update(
@@ -260,6 +270,7 @@ def update_customer(
     },
 )
 def deactivate_customer(
+    actor: AdminUser,
     service: CustomerServiceDependency,
     customer_id: int = Path(gt=0),
 ):
@@ -314,6 +325,7 @@ def deactivate_customer(
     },
 )
 def reactivate_customer(
+    actor: AdminUser,
     service: CustomerServiceDependency,
     customer_id: int = Path(gt=0),
 ):

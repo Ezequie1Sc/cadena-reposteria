@@ -10,7 +10,9 @@ import pytest
 
 from sqlalchemy import delete, select
 
-from app.db.session import SessionLocal, engine
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import make_url
 from app.modules.auth.rate_limit_model import AuthRateLimit
 from app.modules.auth.rate_limit_repository import (
     rate_limit_repository,
@@ -24,8 +26,15 @@ from app.modules.auth.rate_limit_repository import (
 def test_concurrent_attempts_are_counted_atomically():
     """Verifica que PostgreSQL no pierde incrementos concurrentes."""
 
-    if engine.dialect.name != "postgresql":
-        pytest.skip("Esta prueba requiere PostgreSQL")
+    test_url = os.getenv("TEST_DATABASE_URL")
+    if not test_url:
+        pytest.skip("Requiere TEST_DATABASE_URL de una base PostgreSQL local aislada")
+    url = make_url(test_url)
+    if url.get_backend_name() != "postgresql" or url.host not in {"localhost", "127.0.0.1", "::1"} or url.database != "reposteria_audit_test":
+        pytest.fail("Solo se permite PostgreSQL local / reposteria_audit_test")
+    engine = create_engine(url, hide_parameters=True)
+    SessionLocal = sessionmaker(engine)
+    AuthRateLimit.__table__.create(engine, checkfirst=True)
 
     key = f"test:concurrency:{uuid4().hex}"
 

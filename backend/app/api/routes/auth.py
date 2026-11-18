@@ -1,4 +1,3 @@
-
 """Endpoints de autenticación y registro de usuarios."""
 
 from typing import Annotated, Literal
@@ -43,6 +42,7 @@ class LoginRequest(BaseModel):
 
     password: str = Field(
         min_length=1,
+        max_length=128,
         description="Contraseña del usuario",
     )
 
@@ -83,13 +83,10 @@ RateLimitSessionFactory = Annotated[
     responses={
         401: {
             "description": (
-                "Credenciales incorrectas o cuenta no autorizada "
-                "para iniciar sesión"
+                "Credenciales incorrectas o cuenta no autorizada para iniciar sesión"
             )
         },
-        422: {
-            "description": "Datos de entrada inválidos"
-        },
+        422: {"description": "Datos de entrada inválidos"},
         429: {
             "description": (
                 "Demasiadas solicitudes de autenticación. "
@@ -136,17 +133,12 @@ def login(
     ),
     responses={
         409: {
-            "description": (
-                "Ya existe un usuario con el correo electrónico indicado"
-            )
+            "description": ("Ya existe un usuario con el correo electrónico indicado")
         },
-        422: {
-            "description": "Datos de registro inválidos"
-        },
+        422: {"description": "Datos de registro inválidos"},
         429: {
             "description": (
-                "Demasiadas solicitudes de registro. "
-                "Incluye la cabecera Retry-After."
+                "Demasiadas solicitudes de registro. Incluye la cabecera Retry-After."
             )
         },
         503: {
@@ -173,4 +165,59 @@ def register_customer(
     return customer_registration_service.register_customer(
         db=db,
         data=data,
+    )
+
+
+class SessionProfile(BaseModel):
+    id: int
+    rol_id: int
+    nombre: str
+    apellido: str
+    email: str
+    activo: bool
+    cliente_id: int | None
+    sucursal_id: int | None
+
+
+from app.core.auth import CurrentUser
+
+
+@router.get("/me", response_model=SessionProfile, summary="Consultar sesión actual")
+def session_profile(db: DbSession, actor: CurrentUser):
+    from sqlalchemy import select
+    from app.modules.customers.model import Customer
+    from app.modules.employees.model import Employee
+    from app.modules.branches.model import Branch
+
+    customer_id = (
+        db.scalar(
+            select(Customer.id).where(
+                Customer.usuario_id == actor.id, Customer.activo.is_(True)
+            )
+        )
+        if actor.rol_id == 3
+        else None
+    )
+    branch_id = (
+        db.scalar(
+            select(Employee.sucursal_id)
+            .join(Branch)
+            .where(
+                Employee.usuario_id == actor.id,
+                Employee.activo.is_(True),
+                Branch.activo.is_(True),
+            )
+        )
+        if actor.rol_id == 2
+        else None
+    )
+    return SessionProfile(
+        id=actor.id,
+        rol_id=actor.rol_id,
+        nombre=actor.nombre,
+        apellido=actor.apellido,
+        email=actor.email,
+        activo=actor.activo,
+        cliente_id=customer_id,
+        sucursal_id=branch_id,
     )

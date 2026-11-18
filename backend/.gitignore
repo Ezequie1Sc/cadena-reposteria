@@ -1,10 +1,34 @@
+# Private configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*service-account*.json
+secrets/
+# Local environments and generated files
 .venv/
+.venv*/
+venv/
+env/
 __pycache__/
 *.py[cod]
-.env
-. pytest_cache/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage*
+htmlcov/
+*.log
+*.tmp
+*.sqlite*
+*.db
 dist/
 build/
+
+# Generated test reports and evidence
+pytest-results.xml
+docs/implementation/evidence/
+docs/security/evidence/

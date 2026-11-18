@@ -1,3 +1,5 @@
+from app.core.auth import CurrentUser
+from app.core.permissions import AdminUser
 """Endpoints REST para la administración de empleados."""
 
 import logging
@@ -32,6 +34,7 @@ DbSession = Annotated[Session, Depends(get_db)]
     response_model=EmployeeListResponse,
 )
 def list_employees(
+    actor: AdminUser,
     db: DbSession,
     busqueda: str | None = Query(default=None, max_length=100),
     sucursal_id: int | None = Query(default=None, gt=0),
@@ -65,6 +68,7 @@ def list_employees(
     response_model=EmployeeResponse,
 )
 def get_employee(
+    actor: AdminUser,
     employee_id: int,
     db: DbSession,
 ):
@@ -98,6 +102,7 @@ def get_employee(
     status_code=status.HTTP_201_CREATED,
 )
 def create_employee(
+    actor: AdminUser,
     data: EmployeeCreate,
     db: DbSession,
 ):
@@ -123,6 +128,7 @@ def create_employee(
     response_model=EmployeeResponse,
 )
 def update_employee(
+    actor: AdminUser,
     employee_id: int,
     data: EmployeeUpdate,
     db: DbSession,
@@ -150,6 +156,7 @@ def update_employee(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def deactivate_employee(
+    actor: AdminUser,
     employee_id: int,
     db: DbSession,
 ):
@@ -179,6 +186,7 @@ def deactivate_employee(
     response_model=EmployeeResponse,
 )
 def reactivate_employee(
+    actor: AdminUser,
     employee_id: int,
     db: DbSession,
 ):

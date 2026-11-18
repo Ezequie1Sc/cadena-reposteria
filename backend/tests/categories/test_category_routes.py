@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from app.core.auth import get_current_user
 
 from unittest.mock import Mock, patch
 
@@ -26,6 +28,8 @@ def client():
     # Aplicación aislada para probar las rutas.
     app = FastAPI()
     app.include_router(router)
+    # Authorized actor for existing route/service unit scenarios.
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1, rol_id=1, activo=True)
 
     # Sustituir la sesión real por una simulada.
     fake_db = Mock()

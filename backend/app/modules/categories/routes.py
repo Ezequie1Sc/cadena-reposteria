@@ -1,3 +1,5 @@
+from app.core.auth import CurrentUser
+from app.core.permissions import AdminUser
 
 import logging
 from typing import Annotated
@@ -40,6 +42,7 @@ DbSession = Annotated[Session, Depends(get_db)]
     summary="Listar categorías",
 )
 def get_categories(
+    actor: CurrentUser,
     db: DbSession,
     busqueda: str | None = Query(
         default=None,
@@ -51,6 +54,9 @@ def get_categories(
         description="Mostrar únicamente categorías activas",
     ),
 ):
+    if actor.rol_id != 1 and not solo_activos:
+        raise HTTPException(status_code=403, detail="Solo administración puede consultar inactivos")
+
     try:
         categories = category_service.get_categories(
             db=db,
@@ -78,6 +84,7 @@ def get_categories(
     summary="Consultar categoría",
 )
 def get_category(
+    actor: CurrentUser,
     db: DbSession,
     category_id: int = Path(gt=0),
 ):
@@ -87,7 +94,7 @@ def get_category(
             category_id=category_id,
         )
 
-        if category is None:
+        if category is None or (actor.rol_id != 1 and not category.activo):
             raise HTTPException(
                 status_code=404,
                 detail="Categoría no encontrada",
@@ -113,6 +120,7 @@ def get_category(
     summary="Crear categoría",
 )
 def create_category(
+    actor: AdminUser,
     data: CategoryCreate,
     db: DbSession,
 ):
@@ -137,6 +145,7 @@ def create_category(
     summary="Actualizar categoría",
 )
 def update_category(
+    actor: AdminUser,
     data: CategoryUpdate,
     db: DbSession,
     category_id: int = Path(gt=0),
@@ -174,6 +183,7 @@ def update_category(
     },
 )
 def deactivate_category(
+    actor: AdminUser,
     db: DbSession,
     category_id: int = Path(gt=0),
 ):
@@ -205,6 +215,7 @@ def deactivate_category(
     summary="Reactivar categoría",
 )
 def reactivate_category(
+    actor: AdminUser,
     db: DbSession,
     category_id: int = Path(gt=0),
 ):

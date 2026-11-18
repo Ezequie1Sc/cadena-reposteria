@@ -1,4 +1,3 @@
-
 """Lógica de negocio para la gestión de pedidos."""
 
 from __future__ import annotations
@@ -164,10 +163,7 @@ class OrderService:
 
         return OrderListResponse(
             total=total,
-            pedidos=[
-                self._response(order)
-                for order in orders
-            ],
+            pedidos=[self._response(order) for order in orders],
         )
 
     def get_by_id(
@@ -206,6 +202,7 @@ class OrderService:
         data: OrderCreate,
         *,
         usuario_id: int | None = None,
+        commit: bool = True,
     ) -> OrderResponse:
         """Crea un pedido y descuenta existencias atómicamente."""
 
@@ -228,19 +225,13 @@ class OrderService:
                 if product is None:
                     raise HTTPException(
                         status_code=404,
-                        detail=(
-                            f"Producto {item.producto_id} "
-                            "no encontrado"
-                        ),
+                        detail=(f"Producto {item.producto_id} no encontrado"),
                     )
 
                 if not product.activo:
                     raise HTTPException(
                         status_code=409,
-                        detail=(
-                            f"El producto {item.producto_id} "
-                            "está inactivo"
-                        ),
+                        detail=(f"El producto {item.producto_id} está inactivo"),
                     )
 
                 price = Decimal(str(product.precio))
@@ -277,9 +268,7 @@ class OrderService:
             # Bloquear siempre por ID ascendente.
             locked_inventories = {}
 
-            for inventory_id in sorted(
-                set(inventory_ids.values())
-            ):
+            for inventory_id in sorted(set(inventory_ids.values())):
                 inventory = inventory_repository.get_by_id(
                     db,
                     inventory_id,
@@ -298,9 +287,7 @@ class OrderService:
             subtotal = Decimal("0.00")
 
             for item in data.productos:
-                inventory = locked_inventories[
-                    inventory_ids[item.producto_id]
-                ]
+                inventory = locked_inventories[inventory_ids[item.producto_id]]
 
                 if inventory.cantidad < item.cantidad:
                     raise HTTPException(
@@ -313,13 +300,9 @@ class OrderService:
 
                 product = products[item.producto_id]
 
-                unit_price = self._money(
-                    Decimal(str(product.precio))
-                )
+                unit_price = self._money(Decimal(str(product.precio)))
 
-                line_total = self._money(
-                    unit_price * item.cantidad
-                )
+                line_total = self._money(unit_price * item.cantidad)
 
                 subtotal += line_total
 
@@ -359,9 +342,7 @@ class OrderService:
                 data.productos,
                 key=lambda value: inventory_ids[value.producto_id],
             ):
-                inventory = locked_inventories[
-                    inventory_ids[item.producto_id]
-                ]
+                inventory = locked_inventories[inventory_ids[item.producto_id]]
 
                 inventory_repository.update_quantity(
                     db,
@@ -380,7 +361,10 @@ class OrderService:
                     usuario_id=usuario_id,
                 )
 
-            db.commit()
+            if commit:
+                db.commit()
+            else:
+                db.flush()
 
             # Recuperar el pedido con los detalles cargados.
             saved_order = self._require_order(db, order.id)
@@ -398,6 +382,7 @@ class OrderService:
         data: OrderStatusUpdate,
         *,
         usuario_id: int | None = None,
+        commit: bool = True,
     ) -> OrderResponse:
         """Actualiza el estado y repone stock al cancelar."""
 
@@ -456,9 +441,7 @@ class OrderService:
 
                 locked_inventories = {}
 
-                for inventory_id in sorted(
-                    set(inventory_ids.values())
-                ):
+                for inventory_id in sorted(set(inventory_ids.values())):
                     inventory = inventory_repository.get_by_id(
                         db,
                         inventory_id,
@@ -477,9 +460,7 @@ class OrderService:
                     order.detalles,
                     key=lambda value: inventory_ids[value.producto_id],
                 ):
-                    inventory = locked_inventories[
-                        inventory_ids[detail.producto_id]
-                    ]
+                    inventory = locked_inventories[inventory_ids[detail.producto_id]]
 
                     inventory_repository.update_quantity(
                         db,
@@ -504,7 +485,10 @@ class OrderService:
                 new_status.value,
             )
 
-            db.commit()
+            if commit:
+                db.commit()
+            else:
+                db.flush()
 
             saved_order = self._require_order(db, order_id)
             return self._response(saved_order)
