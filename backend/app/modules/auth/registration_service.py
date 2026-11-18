@@ -1,4 +1,3 @@
-
 """Lógica de negocio para el registro público de clientes."""
 
 from fastapi import HTTPException, status
@@ -31,9 +30,7 @@ class CustomerRegistrationService:
         """Comprueba que el rol Cliente exista y esté activo."""
 
         role_active = db.scalar(
-            select(roles_table.c.activo).where(
-                roles_table.c.id == CUSTOMER_ROLE_ID
-            )
+            select(roles_table.c.activo).where(roles_table.c.id == CUSTOMER_ROLE_ID)
         )
 
         if role_active is not True:
@@ -77,9 +74,7 @@ class CustomerRegistrationService:
                 normalized_email,
             )
 
-            password_hash = hash_password(
-                data.password
-            )
+            password_hash = hash_password(data.password)
 
             user = user_repository.create(
                 db=db,
@@ -91,12 +86,22 @@ class CustomerRegistrationService:
                 password_hash=password_hash,
             )
 
+            from app.modules.customers.model import Customer
+
+            db.add(
+                Customer(
+                    usuario_id=user.id,
+                    nombre=user.nombre,
+                    apellido=user.apellido,
+                    email=user.email,
+                    telefono=user.telefono,
+                    activo=True,
+                )
+            )
             db.commit()
             db.refresh(user)
 
-            return CustomerRegistrationResponse.model_validate(
-                user
-            )
+            return CustomerRegistrationResponse.model_validate(user)
 
         except IntegrityError as exc:
             db.rollback()

@@ -1,14 +1,13 @@
-
 """Endpoints protegidos para la gestión de pedidos."""
 
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path, Query, status
+from fastapi import APIRouter, HTTPException, Path, Query, Header, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.auth import DbSession
-from app.core.permissions import StaffUser
+from app.core.permissions import StaffUser, scope_branch, require_order_access
 from app.modules.orders.schemas import (
     OrderCreate,
     OrderListResponse,
@@ -16,7 +15,7 @@ from app.modules.orders.schemas import (
     OrderStatus,
     OrderStatusUpdate,
 )
-from app.modules.orders.service import order_service
+from app.modules.orders.commercial_service import order_service
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +45,7 @@ def list_orders(
     """Lista pedidos con filtros y paginación."""
 
     try:
+        sucursal_id = scope_branch(db, staff, sucursal_id)
         return order_service.get_all(
             db=db,
             cliente_id=cliente_id,
@@ -58,9 +58,7 @@ def list_orders(
     except SQLAlchemyError:
         db.rollback()
 
-        logger.exception(
-            "Error al consultar pedidos"
-        )
+        logger.exception("Error al consultar pedidos")
 
         raise HTTPException(
             status_code=503,
@@ -84,6 +82,7 @@ def get_order_by_number(
     """Consulta un pedido por su número único."""
 
     try:
+        require_order_access(db, staff, number=numero_pedido)
         return order_service.get_by_number(
             db,
             numero_pedido,
@@ -92,9 +91,7 @@ def get_order_by_number(
     except SQLAlchemyError:
         db.rollback()
 
-        logger.exception(
-            "Error al consultar pedido por número"
-        )
+        logger.exception("Error al consultar pedido por número")
 
         raise HTTPException(
             status_code=503,
@@ -115,6 +112,7 @@ def get_order(
     """Consulta un pedido y sus productos."""
 
     try:
+        require_order_access(db, staff, order_id=order_id)
         return order_service.get_by_id(
             db,
             order_id,
@@ -144,22 +142,31 @@ def create_order(
     data: OrderCreate,
     db: DbSession,
     staff: StaffUser,
+    idempotency_key: Annotated[
+        str | None,
+        Header(
+            alias="Idempotency-Key",
+            min_length=8,
+            max_length=100,
+            pattern=r"^[A-Za-z0-9_.:-]+$",
+        ),
+    ] = None,
 ) -> OrderResponse:
     """Crea un pedido y reserva existencias."""
 
     try:
+        scope_branch(db, staff, data.sucursal_id)
         return order_service.create(
             db,
             data,
             usuario_id=staff.id,
+            **({"key": idempotency_key} if idempotency_key else {}),
         )
 
     except SQLAlchemyError:
         db.rollback()
 
-        logger.exception(
-            "Error al crear pedido"
-        )
+        logger.exception("Error al crear pedido")
 
         raise HTTPException(
             status_code=503,
@@ -181,6 +188,7 @@ def update_order_status(
     """Actualiza el estado y repone stock al cancelar."""
 
     try:
+        require_order_access(db, staff, order_id=order_id)
         return order_service.update_status(
             db,
             order_id,
@@ -200,3 +208,20 @@ def update_order_status(
             status_code=503,
             detail="No fue posible actualizar el pedido",
         ) from None
+
+
+from app.shared.commerce import EventResponse, Limit, Offset, history
+
+
+@router.get("/{order_id}/historial", response_model=list[EventResponse])
+def order_events(
+    order_id: OrderID,
+    db: DbSession,
+    staff: StaffUser,
+    limit: Limit = 100,
+    offset: Offset = 0,
+):
+    require_order_access(db, staff, order_id=order_id)
+    # Admin access also verifies existence.
+    order_service.get_by_id(db, order_id)
+    return history(db, "PEDIDO", order_id, limit, offset)

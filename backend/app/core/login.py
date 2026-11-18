@@ -2,6 +2,7 @@
 """Servicio de autenticación mediante correo y contraseña."""
 
 from dataclasses import dataclass
+from secrets import token_hex
 
 from argon2.exceptions import VerificationError
 from fastapi import HTTPException, status
@@ -9,10 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import validate_active_role
 from app.core.jwt import create_access_token
-from app.core.security import verify_password
+from app.core.security import verify_password, hash_password
 from app.modules.users.model import User
 from app.modules.users.repository import user_repository
 
+
+# Perform comparable Argon2 work for unknown accounts; this is not a credential.
+_DUMMY_PASSWORD_HASH = hash_password(token_hex(32))
 
 @dataclass(frozen=True)
 class LoginResult:
@@ -59,6 +63,7 @@ def authenticate_user(
     )
 
     if user is None:
+        verify_password(password, _DUMMY_PASSWORD_HASH)
         raise invalid_credentials()
 
     try:

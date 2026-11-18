@@ -105,6 +105,8 @@ class CustomerBase(BaseModel):
 
 class CustomerCreate(CustomerBase):
     """Datos requeridos para registrar un cliente."""
+    model_config = ConfigDict(extra="forbid")
+
 
     pass
 

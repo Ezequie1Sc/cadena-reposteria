@@ -13,6 +13,7 @@ class Base(DeclarativeBase):
 
 engine = create_engine(
     settings.database_url,
+    hide_parameters=True,
     pool_pre_ping=True,
     pool_recycle=300,
     pool_size=5,
@@ -28,4 +29,8 @@ SessionLocal = sessionmaker(
 
 def get_db() -> Generator[Session, None, None]:
     with SessionLocal() as db:
-        yield db
+        try:
+            yield db
+        except Exception:
+            db.rollback()
+            raise

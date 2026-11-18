@@ -1,3 +1,5 @@
+from app.core.auth import CurrentUser
+from app.core.permissions import AdminUser
 
 import logging
 from typing import Annotated
@@ -40,6 +42,7 @@ DbSession = Annotated[Session, Depends(get_db)]
     summary="Listar productos",
 )
 def get_products(
+    actor: CurrentUser,
     db: DbSession,
     busqueda: str | None = Query(
         default=None,
@@ -55,6 +58,9 @@ def get_products(
         description="Mostrar únicamente productos activos",
     ),
 ):
+    if actor.rol_id != 1 and not solo_activos:
+        raise HTTPException(status_code=403, detail="Solo administración puede consultar inactivos")
+
     try:
         products = product_service.get_products(
             db=db,
@@ -83,6 +89,7 @@ def get_products(
     summary="Consultar producto",
 )
 def get_product(
+    actor: CurrentUser,
     db: DbSession,
     product_id: int = Path(gt=0),
 ):
@@ -92,7 +99,7 @@ def get_product(
             product_id=product_id,
         )
 
-        if product is None:
+        if product is None or (actor.rol_id != 1 and not product.activo):
             raise HTTPException(
                 status_code=404,
                 detail="Producto no encontrado",
@@ -115,6 +122,7 @@ def get_product(
     summary="Crear producto",
 )
 def create_product(
+    actor: AdminUser,
     data: ProductCreate,
     db: DbSession,
 ):
@@ -136,6 +144,7 @@ def create_product(
     summary="Actualizar producto",
 )
 def update_product(
+    actor: AdminUser,
     data: ProductUpdate,
     db: DbSession,
     product_id: int = Path(gt=0),
@@ -163,6 +172,7 @@ def update_product(
     description="Desactiva un producto sin eliminarlo físicamente.",
 )
 def deactivate_product(
+    actor: AdminUser,
     db: DbSession,
     product_id: int = Path(gt=0),
 ):
@@ -185,6 +195,7 @@ def deactivate_product(
     summary="Reactivar producto",
 )
 def reactivate_product(
+    actor: AdminUser,
     db: DbSession,
     product_id: int = Path(gt=0),
 ):

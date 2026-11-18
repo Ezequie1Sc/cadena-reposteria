@@ -95,12 +95,13 @@ def decode_access_token(token: str) -> int:
         not isinstance(subject, str)
         or not subject.isascii()
         or not subject.isdecimal()
+        or len(subject) > 19
     ):
         raise TokenValidationError("Identificador de usuario inválido")
 
     user_id = int(subject)
 
-    if user_id <= 0:
+    if user_id <= 0 or user_id > 9223372036854775807:
         raise TokenValidationError("Identificador de usuario inválido")
 
     return user_id

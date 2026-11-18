@@ -37,6 +37,8 @@ def validate_email(value: str) -> str:
 
 class UserBase(BaseModel):
     """Campos comunes de un usuario."""
+    model_config = ConfigDict(extra="forbid")
+
 
     rol_id: int = Field(gt=0)
 
@@ -106,6 +108,8 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Campos opcionales para actualizar un usuario."""
+    model_config = ConfigDict(extra="forbid")
+
 
     rol_id: int | None = Field(
         default=None,

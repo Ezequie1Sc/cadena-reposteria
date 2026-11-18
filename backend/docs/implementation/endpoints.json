@@ -1,0 +1,462 @@
+[
+  {
+    "method": "DELETE",
+    "path": "/categorias/{category_id}",
+    "new": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/clientes/{customer_id}",
+    "new": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/empleados/{employee_id}",
+    "new": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/productos/{product_id}",
+    "new": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/sucursales/{branch_id}",
+    "new": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/usuarios/{user_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/categorias",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/categorias/{category_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/clientes",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/clientes/{customer_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/empleados",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/empleados/{employee_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/facturas",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/facturas/{invoice_id}",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/facturas/{invoice_id}/historial",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/health",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/health/database",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/inventarios",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/inventarios/{inventory_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/inventarios/{inventory_id}/movimientos",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/mis-pedidos",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/mis-pedidos/{order_id}",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/mis-pedidos/{order_id}/historial",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/pagos",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/pagos/metodos",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/pagos/{payment_id}",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/pagos/{payment_id}/historial",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/pedidos",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/pedidos/numero/{numero_pedido}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/pedidos/{order_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/pedidos/{order_id}/historial",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/productos",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/productos/{product_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/reportes/dashboard",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/reportes/inventarios",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/reportes/movimientos",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/reportes/pagos",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/reportes/productos",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/reportes/ventas",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/roles",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/sucursales",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/sucursales-cercanas",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/sucursales/{branch_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/tickets",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/tickets/{ticket_id}",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/tickets/{ticket_id}/imprimir",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/usuarios",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/usuarios/{user_id}",
+    "new": false
+  },
+  {
+    "method": "GET",
+    "path": "/ventas",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/ventas/{sale_id}",
+    "new": true
+  },
+  {
+    "method": "GET",
+    "path": "/ventas/{sale_id}/historial",
+    "new": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/categorias/{category_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/categorias/{category_id}/reactivar",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/clientes/{customer_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/clientes/{customer_id}/reactivar",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/empleados/{employee_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/empleados/{employee_id}/reactivar",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/facturas/{invoice_id}/estado",
+    "new": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/inventarios/{inventory_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/pagos/{payment_id}/estado",
+    "new": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/pedidos/{order_id}/estado",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/productos/{product_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/productos/{product_id}/reactivar",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/sucursales/{branch_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/sucursales/{branch_id}/reactivar",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/usuarios/{user_id}",
+    "new": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/usuarios/{user_id}/reactivar",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/auth/register",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/categorias",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/clientes",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/empleados",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/facturas",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/inventarios",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/inventarios/{inventory_id}/ajustes",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/inventarios/{inventory_id}/entradas",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/inventarios/{inventory_id}/salidas",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/inventarios/{inventory_id}/traspasos",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/mi-perfil",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/mis-pedidos",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/mis-pedidos/{order_id}/cancelar",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/pagos",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/pedidos",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/productos",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/sucursales",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/tickets/venta/{sale_id}",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/usuarios",
+    "new": false
+  },
+  {
+    "method": "POST",
+    "path": "/ventas",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/ventas/expirar",
+    "new": true
+  },
+  {
+    "method": "POST",
+    "path": "/ventas/{sale_id}/cancelar",
+    "new": true
+  }
+]

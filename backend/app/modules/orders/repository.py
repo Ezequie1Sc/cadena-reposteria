@@ -109,7 +109,7 @@ class OrderRepository:
         )
 
         if for_update:
-            statement = statement.with_for_update()
+            statement = statement.with_for_update().execution_options(populate_existing=True)
         else:
             statement = statement.options(
                 selectinload(Order.detalles)
@@ -253,7 +253,7 @@ class OrderRepository:
         )
 
         if for_update:
-            statement = statement.with_for_update()
+            statement = statement.with_for_update().execution_options(populate_existing=True)
 
         return db.scalar(statement)
 

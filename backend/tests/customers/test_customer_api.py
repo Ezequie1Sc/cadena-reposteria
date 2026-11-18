@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from app.core.auth import get_current_user
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -48,8 +50,12 @@ def mock_service():
 
 @pytest.fixture
 def client(mock_service):
-    with TestClient(app) as test_client:
-        yield test_client
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1, rol_id=1, activo=True)
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 # ============================================================

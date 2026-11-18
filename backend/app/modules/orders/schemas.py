@@ -1,4 +1,3 @@
-
 """Esquemas Pydantic para la gestión de pedidos."""
 
 from datetime import datetime
@@ -27,12 +26,16 @@ class OrderStatus(str, Enum):
 class OrderItemCreate(BaseModel):
     """Producto solicitado en un pedido."""
 
+    model_config = ConfigDict(extra="forbid")
+
     producto_id: int = Field(gt=0)
-    cantidad: int = Field(gt=0)
+    cantidad: int = Field(gt=0, le=2147483647)
 
 
 class OrderCreate(BaseModel):
     """Datos necesarios para registrar un pedido."""
+
+    model_config = ConfigDict(extra="forbid")
 
     cliente_id: int = Field(gt=0)
     sucursal_id: int = Field(gt=0)
@@ -60,15 +63,10 @@ class OrderCreate(BaseModel):
     ) -> list[OrderItemCreate]:
         """Evitar productos duplicados en un mismo pedido."""
 
-        product_ids = [
-            product.producto_id
-            for product in products
-        ]
+        product_ids = [product.producto_id for product in products]
 
         if len(product_ids) != len(set(product_ids)):
-            raise ValueError(
-                "No se permiten productos duplicados en el pedido."
-            )
+            raise ValueError("No se permiten productos duplicados en el pedido.")
 
         return products
 
@@ -123,5 +121,7 @@ class OrderListResponse(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     """Solicitud para actualizar el estado de un pedido."""
+
+    model_config = ConfigDict(extra="forbid")
 
     estado: OrderStatus

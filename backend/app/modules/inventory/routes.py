@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Path, Query, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.auth import DbSession
-from app.core.permissions import AdminUser, StaffUser
+from app.core.permissions import AdminUser, StaffUser, scope_branch, require_inventory_access
 from app.modules.inventory.schemas import (
     InventoryAdjustmentCreate,
     InventoryCreate,
@@ -46,6 +46,7 @@ def list_inventories(
     solo_bajo_stock: bool = False,
 ) -> InventoryListResponse:
     try:
+        sucursal_id = scope_branch(db, staff, sucursal_id)
         return inventory_service.get_all(
             db=db,
             sucursal_id=sucursal_id,
@@ -71,6 +72,7 @@ def get_inventory(
     staff: StaffUser,
 ) -> InventoryResponse:
     try:
+        require_inventory_access(db, staff, inventory_id)
         return inventory_service.get_by_id(db, inventory_id)
     except SQLAlchemyError:
         logger.exception("Error al consultar inventario")
@@ -140,6 +142,7 @@ def register_entry(
     staff: StaffUser,
 ) -> InventoryResponse:
     try:
+        require_inventory_access(db, staff, inventory_id)
         return inventory_service.register_entry(
             db,
             inventory_id,
@@ -167,6 +170,7 @@ def register_exit(
     staff: StaffUser,
 ) -> InventoryResponse:
     try:
+        require_inventory_access(db, staff, inventory_id)
         return inventory_service.register_exit(
             db,
             inventory_id,
@@ -249,6 +253,7 @@ def list_movements(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> InventoryMovementListResponse:
     try:
+        require_inventory_access(db, staff, inventory_id)
         return inventory_service.get_movements(
             db,
             inventory_id,

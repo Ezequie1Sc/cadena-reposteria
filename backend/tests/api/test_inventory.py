@@ -1,3 +1,4 @@
+from tests.security.legacy_seed import seed_scope_tables
 
 """Pruebas HTTP de los endpoints de inventarios."""
 
@@ -162,6 +163,8 @@ def db():
                 "(1, 1), (2, 1), (3, 1)"
             )
         )
+
+    seed_scope_tables(engine, "inventory")
 
     SessionLocal = sessionmaker(
         bind=engine,

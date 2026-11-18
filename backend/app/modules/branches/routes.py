@@ -1,3 +1,5 @@
+from app.core.auth import CurrentUser
+from app.core.permissions import AdminUser
 
 import logging
 from typing import Annotated
@@ -40,6 +42,7 @@ DbSession = Annotated[Session, Depends(get_db)]
     summary="Listar sucursales",
 )
 def get_branches(
+    actor: CurrentUser,
     db: DbSession,
     busqueda: str | None = Query(
         default=None,
@@ -51,6 +54,9 @@ def get_branches(
         description="Mostrar únicamente sucursales activas",
     ),
 ):
+    if actor.rol_id != 1 and not solo_activos:
+        raise HTTPException(status_code=403, detail="Solo administración puede consultar inactivos")
+
     try:
         branches = branch_service.get_branches(
             db=db,
@@ -80,6 +86,7 @@ def get_branches(
     summary="Consultar sucursal",
 )
 def get_branch(
+    actor: CurrentUser,
     db: DbSession,
     branch_id: int = Path(gt=0),
 ):
@@ -89,7 +96,7 @@ def get_branch(
             branch_id=branch_id,
         )
 
-        if branch is None:
+        if branch is None or (actor.rol_id != 1 and not branch.activo):
             raise HTTPException(
                 status_code=404,
                 detail="Sucursal no encontrada",
@@ -115,6 +122,7 @@ def get_branch(
     summary="Crear sucursal",
 )
 def create_branch(
+    actor: AdminUser,
     data: BranchCreate,
     db: DbSession,
 ):
@@ -139,6 +147,7 @@ def create_branch(
     summary="Actualizar sucursal",
 )
 def update_branch(
+    actor: AdminUser,
     data: BranchUpdate,
     db: DbSession,
     branch_id: int = Path(gt=0),
@@ -174,6 +183,7 @@ def update_branch(
     },
 )
 def deactivate_branch(
+    actor: AdminUser,
     db: DbSession,
     branch_id: int = Path(gt=0),
 ):
@@ -205,6 +215,7 @@ def deactivate_branch(
     summary="Reactivar sucursal",
 )
 def reactivate_branch(
+    actor: AdminUser,
     db: DbSession,
     branch_id: int = Path(gt=0),
 ):

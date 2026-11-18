@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from app.core.auth import get_current_user
 """Pruebas HTTP de los endpoints de empleados."""
 
 from datetime import datetime, timezone
@@ -13,7 +15,12 @@ from app.modules.employees.schemas import EmployeeResponse
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1, rol_id=1, activo=True)
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
