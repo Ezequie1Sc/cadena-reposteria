@@ -32,3 +32,12 @@ build/
 pytest-results.xml
 docs/implementation/evidence/
 docs/security/evidence/
+# Local backend documentation
+/*.md
+!/README.md
+
+# Local CSV reports
+/*.csv
+
+# Generated test reports
+pytest-results.xml
