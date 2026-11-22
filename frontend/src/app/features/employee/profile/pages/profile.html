@@ -1,0 +1,25 @@
+<section class="page">
+  <div class="page-header">
+    <div>
+      <h1>Mi perfil</h1>
+      <p class="muted">Datos de tu sesión de trabajo.</p>
+    </div>
+  </div>
+  @if (auth.user(); as account) {
+    <article class="panel profile-card">
+      <div class="initials" aria-hidden="true">
+        {{ account.nombre.charAt(0) }}{{ account.apellido.charAt(0) }}
+      </div>
+      <h2>{{ account.nombre }} {{ account.apellido }}</h2>
+      <dl>
+        <dt>Correo electrónico</dt>
+        <dd>{{ account.email }}</dd>
+        <dt>Rol</dt>
+        <dd>Empleado</dd>
+        <dt>Sucursal asignada</dt>
+        <dd>{{ account.sucursal_id ? '#' + account.sucursal_id : 'Sin asignación activa' }}</dd>
+      </dl>
+      <button class="btn btn-secondary" type="button" (click)="auth.logout()">Cerrar sesión</button>
+    </article>
+  }
+</section>

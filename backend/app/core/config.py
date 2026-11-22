@@ -8,6 +8,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    administracion_habilitada: bool = False
+    correo_clave_cifrado: str | None = Field(default=None, repr=False)
+    resend_api_key: str | None = Field(default=None, repr=False)
+    correo_remitente: str | None = None
+    portal_url: str | None = None
+    supabase_storage_key: str | None = Field(default=None, repr=False)
     app_name: str = "Sistema de Gestión de Repostería"
     app_env: Literal["development", "test", "staging", "production"] = "development"
     debug: bool = False

@@ -1,6 +1,6 @@
 """Autorización basada en roles para endpoints protegidos."""
 
-from enum import IntEnum
+from app.core.roles import RoleID
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -9,14 +9,6 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import CurrentUser, DbSession
 from app.modules.users.model import User
-
-
-class RoleID(IntEnum):
-    """Identificadores de roles registrados en PostgreSQL."""
-
-    ADMINISTRADOR = 1
-    EMPLEADO = 2
-    CLIENTE = 3
 
 
 def require_roles(*allowed_roles: RoleID):

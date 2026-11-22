@@ -55,9 +55,10 @@ def db():
             "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
         )
 
+        connection.exec_driver_sql("ALTER TABLE roles ADD COLUMN nombre TEXT")
         connection.exec_driver_sql(
-            "INSERT INTO roles (id, activo) "
-            "VALUES (1, 1), (2, 0)"
+            "INSERT INTO roles (id, nombre, activo) "
+            "VALUES (1, 'Administrador', 1), (2, 'Empleado', 0)"
         )
 
     SessionLocal = sessionmaker(

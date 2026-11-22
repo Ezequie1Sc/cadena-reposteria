@@ -1,0 +1,115 @@
+<section class="inv-panel editor" aria-labelledby="inv-edit-title">
+  <div class="inv-section-heading">
+    <div>
+      <h2 id="inv-edit-title">{{ labels[action()] }}</h2>
+      @if (item()) {
+        <p>{{ itemName() }} · {{ item()?.cantidad }} unidades disponibles</p>
+      }
+    </div>
+    <button class="inv-button" type="button" [disabled]="busy()" (click)="close.emit()">
+      Cerrar
+    </button>
+  </div>
+  <form (ngSubmit)="submit()" novalidate>
+    <fieldset [disabled]="busy() || uncertain()">
+      @if (action() === 'alta') {
+        <label
+          >Sucursal<select
+            name="branch"
+            [ngModel]="branch()"
+            (ngModelChange)="branch.set($event); product.set(null)"
+          >
+            <option [ngValue]="null">Seleccionar sucursal</option>
+            @for (b of branches(); track b.id) {
+              @if (b.activo) {
+                <option [ngValue]="b.id">{{ b.nombre }}</option>
+              }
+            }
+          </select></label
+        >
+        <label
+          >Producto<select
+            name="product"
+            [disabled]="!branch()"
+            [ngModel]="product()"
+            (ngModelChange)="product.set($event)"
+          >
+            <option [ngValue]="null">Seleccionar producto</option>
+            @for (p of availableProducts(); track p.id) {
+              <option [ngValue]="p.id">{{ p.nombre }} · {{ p.sku }}</option>
+            }
+          </select></label
+        >
+        @if (branch() && !availableProducts().length) {
+          <p class="field-note">No quedan productos activos por asignar a esta sucursal.</p>
+        }
+      }
+      @if (action() === 'traspasos') {
+        <label
+          >Sucursal de destino<select
+            name="destination"
+            [ngModel]="branch()"
+            (ngModelChange)="branch.set($event)"
+          >
+            <option [ngValue]="null">Seleccionar destino</option>
+            @for (b of destinations(); track b.id) {
+              <option [ngValue]="b.id">{{ b.nombre }}</option>
+            }
+          </select></label
+        >
+        @if (!destinations().length) {
+          <p class="field-note">
+            Crea primero un inventario para este producto en otra sucursal activa.
+          </p>
+        }
+      }
+      <label
+        >{{
+          action() === 'alta' || action() === 'minimo'
+            ? 'Stock mínimo'
+            : action() === 'ajustes'
+              ? 'Existencia final'
+              : 'Cantidad'
+        }}
+        <input
+          name="amount"
+          type="number"
+          inputmode="numeric"
+          [min]="
+            action() === 'entradas' || action() === 'salidas' || action() === 'traspasos' ? 1 : 0
+          "
+          step="1"
+          [ngModel]="amount()"
+          (ngModelChange)="amount.set($event)"
+          required
+        />
+      </label>
+      @if (action() !== 'alta' && action() !== 'minimo') {
+        <label class="wide"
+          >Motivo {{ action() === 'ajustes' ? '(obligatorio)' : '(opcional)' }}
+          <textarea
+            name="reason"
+            rows="2"
+            maxlength="255"
+            [ngModel]="reason()"
+            (ngModelChange)="reason.set($event)"
+          ></textarea>
+        </label>
+      }
+    </fieldset>
+    @if (error()) {
+      <p class="inv-message bad" role="alert">{{ error() }}</p>
+    }
+    @if (uncertain()) {
+      <p class="inv-message bad" role="alert">
+        No se pudo verificar el resultado. Cierra este formulario, actualiza el inventario y revisa
+        sus movimientos antes de repetir la operación.
+      </p>
+    }
+    <div class="edit-footer">
+      <button class="inv-button primary" type="submit" [disabled]="busy() || uncertain()">
+        Revisar operación
+      </button>
+    </div>
+  </form>
+</section>

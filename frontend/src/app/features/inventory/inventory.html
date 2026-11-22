@@ -1,0 +1,222 @@
+<div class="page inv-page">
+  @if (detailId() || action() === 'alta') {
+    <button type="button" class="inv-back" (click)="list()">← Volver a inventario</button>
+  }
+  <header class="page-header">
+    <div>
+      <h1>{{ detailId() ? 'Detalle de inventario' : 'Inventario' }}</h1>
+      @if (!detailId()) {
+        <p>
+          {{
+            auth.isAdmin()
+              ? 'Existencias por producto y sucursal.'
+              : 'Disponibilidad y movimientos de tu sucursal.'
+          }}
+        </p>
+      }
+    </div>
+    @if (!detailId() && !action() && auth.isAdmin() && !loading() && !error()) {
+      <button class="inv-button primary" (click)="action.set('alta')">Crear inventario</button>
+    }
+  </header>
+
+  @if (error()) {
+    <div class="inv-message bad" role="alert">
+      {{ error() }} <button class="inv-button" (click)="load()">Reintentar consulta</button>
+    </div>
+  }
+
+  @if (detailId()) {
+    @if (detailLoading()) {
+      <dg-skeleton shape="detail" />
+    } @else if (detailError()) {
+      <div class="inv-message bad" role="alert">
+        {{ detailError() }}
+        <button class="inv-button" (click)="open(detailId()!)">Reintentar</button>
+      </div>
+    } @else if (selected(); as row) {
+      <section class="inv-panel" aria-label="Existencias del producto">
+        <div class="inv-section-heading">
+          <div>
+            <p class="inv-kicker">
+              {{ branches().get(row.sucursal_id)?.nombre || 'Sucursal #' + row.sucursal_id }}
+            </p>
+            <h2>{{ products().get(row.producto_id)?.nombre || 'Producto #' + row.producto_id }}</h2>
+            @if (products().get(row.producto_id); as product) {
+              <p>{{ product.sku }}</p>
+            }
+          </div>
+          <span class="inv-badge" [class.low]="row.cantidad <= row.stock_minimo">{{
+            label(row)
+          }}</span>
+        </div>
+        <dl class="inv-details">
+          <div>
+            <dt>Existencias</dt>
+            <dd>{{ row.cantidad }} <small>unidades</small></dd>
+          </div>
+          <div>
+            <dt>Stock mínimo</dt>
+            <dd>{{ row.stock_minimo }}</dd>
+          </div>
+          <div>
+            <dt>Última actualización</dt>
+            <dd class="small">{{ row.updated_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          </div>
+        </dl>
+        @if (!action() && !error()) {
+          <div class="inv-actions">
+            @for (op of actions(); track op) {
+              <button
+                type="button"
+                class="inv-button"
+                [class.primary]="op === 'entradas'"
+                (click)="action.set(op)"
+              >
+                {{ labels[op] }}
+              </button>
+            }
+          </div>
+        }
+      </section>
+    }
+  }
+
+  @if (action(); as op) {
+    <app-inventory-editor
+      [action]="op"
+      [item]="selected()"
+      [inventories]="inventories()"
+      [branches]="branchList()"
+      [products]="productList()"
+      (saved)="saved($event)"
+      (close)="cancelEdit()"
+    />
+  }
+
+  @if (detailId() && selected()) {
+    <app-movement-history [inventoryId]="detailId()!" [revision]="revision()" />
+  } @else if (!action() && !detailId()) {
+    <section class="inv-panel" aria-label="Listado de existencias">
+      <div class="inv-filters">
+        <label class="inv-search"
+          >Buscar producto<input
+            type="search"
+            placeholder="Nombre, SKU o ID"
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event); page.set(0)"
+        /></label>
+        @if (auth.isAdmin()) {
+          <label
+            >Sucursal<select [ngModel]="branch()" (ngModelChange)="branch.set($event); page.set(0)">
+              <option [ngValue]="null">Todas las sucursales</option>
+              @for (b of branchList(); track b.id) {
+                <option [ngValue]="b.id">{{ b.nombre }}</option>
+              }
+            </select></label
+          >
+        }
+        <label class="switch"
+          ><input
+            type="checkbox"
+            [ngModel]="low()"
+            (ngModelChange)="low.set($event); page.set(0)"
+          />Solo stock bajo</label
+        >
+        <button class="inv-button" [disabled]="loading()" (click)="load()">Actualizar</button>
+      </div>
+      @if (loading()) {
+        <dg-skeleton shape="table" />
+      } @else if (!error() && visible().length) {
+        <div class="inv-table" tabindex="0" aria-label="Existencias por producto">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                @if (auth.isAdmin()) {
+                  <th>Sucursal</th>
+                }
+                <th>Existencias</th>
+                <th>Mínimo</th>
+                <th>Disponibilidad</th>
+                <th><span class="inv-sr">Detalle</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visible(); track row.id) {
+                <tr>
+                  <td>
+                    <strong>{{
+                      products().get(row.producto_id)?.nombre || 'Producto #' + row.producto_id
+                    }}</strong>
+                    @if (products().get(row.producto_id); as product) {
+                      <small>{{ product.sku }}</small>
+                    }
+                  </td>
+                  @if (auth.isAdmin()) {
+                    <td>
+                      {{
+                        branches().get(row.sucursal_id)?.nombre || 'Sucursal #' + row.sucursal_id
+                      }}
+                    </td>
+                  }
+                  <td class="stock">{{ row.cantidad }}</td>
+                  <td>{{ row.stock_minimo }}</td>
+                  <td>
+                    <span class="inv-badge" [class.low]="row.cantidad <= row.stock_minimo">{{
+                      label(row)
+                    }}</span>
+                  </td>
+                  <td>
+                    <button
+                      class="inv-button"
+                      (click)="open(row.id)"
+                      [attr.aria-label]="
+                        'Ver inventario de ' +
+                        (products().get(row.producto_id)?.nombre || 'producto ' + row.producto_id) +
+                        ', ' +
+                        (branches().get(row.sucursal_id)?.nombre || 'sucursal ' + row.sucursal_id)
+                      "
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="inv-pager">
+          <span
+            >{{ filtered().length }} {{ filtered().length === 1 ? 'registro' : 'registros' }}</span
+          >
+          @if (pageCount() > 1) {
+            <nav aria-label="Páginas de inventario">
+              <button class="inv-button" [disabled]="page() === 0" (click)="page.set(page() - 1)">
+                Anterior
+              </button>
+              <span>{{ page() + 1 }} / {{ pageCount() }}</span
+              ><button
+                class="inv-button"
+                [disabled]="page() + 1 >= pageCount()"
+                (click)="page.set(page() + 1)"
+              >
+                Siguiente
+              </button>
+            </nav>
+          }
+        </div>
+      } @else if (!error()) {
+        <dg-empty
+          icon="stock"
+          [title]="inventories().length ? 'Sin coincidencias' : 'Sin existencias registradas'"
+          [description]="
+            inventories().length
+              ? 'Prueba con otro producto o cambia los filtros.'
+              : 'Los productos asignados al inventario aparecerán aquí.'
+          "
+        />
+      }
+    </section>
+  }
+</div>

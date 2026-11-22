@@ -344,6 +344,7 @@ class OrderService:
             ):
                 inventory = locked_inventories[inventory_ids[item.producto_id]]
 
+                previous_quantity = inventory.cantidad
                 inventory_repository.update_quantity(
                     db,
                     inventory,
@@ -355,6 +356,7 @@ class OrderService:
                     inventario_id=inventory.id,
                     tipo="SALIDA",
                     cantidad=item.cantidad,
+                    cantidad_anterior=previous_quantity, cantidad_nueva=previous_quantity-item.cantidad,
                     motivo="Reserva de existencias por pedido",
                     referencia_tipo="PEDIDO",
                     referencia_id=order.id,
@@ -462,6 +464,7 @@ class OrderService:
                 ):
                     inventory = locked_inventories[inventory_ids[detail.producto_id]]
 
+                    previous_quantity = inventory.cantidad
                     inventory_repository.update_quantity(
                         db,
                         inventory,
@@ -473,6 +476,7 @@ class OrderService:
                         inventario_id=inventory.id,
                         tipo="ENTRADA",
                         cantidad=detail.cantidad,
+                        cantidad_anterior=previous_quantity, cantidad_nueva=previous_quantity+detail.cantidad,
                         motivo="Reposición por cancelación de pedido",
                         referencia_tipo="PEDIDO",
                         referencia_id=order.id,

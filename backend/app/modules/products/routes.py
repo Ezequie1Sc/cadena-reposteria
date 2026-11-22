@@ -1,4 +1,6 @@
+from app.core.roles import RoleID
 from app.core.auth import CurrentUser
+from app.modules.administracion.access import administrative_contract
 from app.core.permissions import AdminUser
 
 import logging
@@ -58,7 +60,7 @@ def get_products(
         description="Mostrar únicamente productos activos",
     ),
 ):
-    if actor.rol_id != 1 and not solo_activos:
+    if actor.rol_id != RoleID.ADMINISTRADOR and not solo_activos:
         raise HTTPException(status_code=403, detail="Solo administración puede consultar inactivos")
 
     try:
@@ -99,7 +101,7 @@ def get_product(
             product_id=product_id,
         )
 
-        if product is None or (actor.rol_id != 1 and not product.activo):
+        if product is None or (actor.rol_id != RoleID.ADMINISTRADOR and not product.activo):
             raise HTTPException(
                 status_code=404,
                 detail="Producto no encontrado",
@@ -127,6 +129,7 @@ def create_product(
     db: DbSession,
 ):
     try:
+        administrative_contract("Utiliza /administracion/productos")
         return product_service.create_product(db, data)
 
     except SQLAlchemyError:
@@ -150,6 +153,8 @@ def update_product(
     product_id: int = Path(gt=0),
 ):
     try:
+        if data.model_fields_set & {"sku","imagen_url"}:
+            administrative_contract("El SKU es inmutable y las fotos tienen una ruta propia")
         return product_service.update_product(
             db=db,
             product_id=product_id,

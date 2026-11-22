@@ -1,0 +1,128 @@
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 100;
+  display: grid;
+  gap: 10px;
+  width: min(455px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  --tone: #386582;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #fffdfb;
+  color: #352b24;
+  padding: 18px 12px 18px 18px;
+  border: 1px solid #e1d8cd;
+  border-left: 5px solid var(--tone);
+  border-radius: 14px;
+  box-shadow: 0 10px 36px #33261c24;
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--tone) 6%, white);
+  border-color: color-mix(in srgb, var(--tone) 40%, white);
+  border-left-color: var(--tone);
+  animation: toast-in 0.2s ease;
+}
+.toast.success {
+  --tone: #34714e;
+}
+.toast.error {
+  --tone: #a34b43;
+}
+.toast.warning {
+  --tone: #8b6223;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--tone);
+  color: var(--tone);
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 750;
+  width: 23px;
+  height: 23px;
+  flex: none;
+}
+.toast strong {
+  font-size: 0.95rem;
+}
+.toast p {
+  margin: 4px 0 0;
+  line-height: 1.45;
+  color: #655b53;
+  font-size: 0.88rem;
+}
+.toast button {
+  pointer-events: auto;
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: #66594d;
+  font-size: 1.4rem;
+  min-width: 36px;
+  min-height: 34px;
+}
+.toast.closing {
+  animation: toast-out 0.18s ease forwards;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.closing {
+    animation: none;
+  }
+}
+.mark {
+  border: 0;
+}
+
+.toast i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  transform-origin: left;
+  background: var(--tone);
+  animation: duration linear forwards;
+}
+.toast:hover i,
+.toast:focus-within i {
+  animation-play-state: paused;
+}
+@keyframes duration {
+  to {
+    transform: scaleX(0);
+  }
+}
+@media (max-width: 600px) {
+  .toast-stack {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast i {
+    display: none;
+  }
+}

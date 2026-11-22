@@ -1,0 +1,215 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.commerce {
+  display: grid;
+  gap: 1.25rem;
+}
+.detail,
+.ledger {
+  min-width: 0;
+}
+.detail {
+  display: grid;
+  gap: 1rem;
+}
+.detail-heading,
+.pager,
+.cart-line,
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.detail-heading h2 {
+  font-size: 1.3rem;
+  overflow-wrap: anywhere;
+  margin: 0.35rem 0 0.6rem;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  gap: 1rem;
+  margin: 0.2rem 0;
+}
+.facts dt,
+.filters label,
+.order-lines label {
+  font-size: 0.78rem;
+  color: #655a52;
+}
+.facts dd {
+  margin: 0.2rem 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.8rem;
+  border-bottom: 1px solid #e8e2da;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+.filters .field {
+  flex: 1 1 118px;
+}
+.filters input,
+.filters select {
+  width: 100%;
+}
+.pager,
+.timeline {
+  border-top: 1px solid #e8e2da;
+  padding-top: 1rem;
+  margin-top: 0.8rem;
+}
+.pager {
+  font-size: 0.85rem;
+  color: #655a52;
+}
+.commerce table small {
+  display: block;
+  color: #655a52;
+  margin-top: 0.25rem;
+}
+.commerce table caption {
+  text-align: left;
+  font-weight: 650;
+  margin: 0 0 0.65rem;
+}
+.commerce h3 {
+  font-size: 1rem;
+  margin: 0.35rem 0;
+}
+.is-selected {
+  background: #f8f3ed;
+}
+.money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.badge[data-state='APROBADO'],
+.badge[data-state='CONFIRMADA'],
+.badge[data-state='PAGADO'],
+.badge[data-state='ENTREGADO'] {
+  color: #255741;
+  background: #e6f0e8;
+}
+.badge[data-state='PENDIENTE'] {
+  color: #775116;
+  background: #faf0d9;
+}
+.badge[data-state='CANCELADA'],
+.badge[data-state='CANCELADO'],
+.badge[data-state='RECHAZADO'] {
+  color: #823f37;
+  background: #f5e6e2;
+}
+.plain-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.timeline-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+.timeline-item i {
+  background: #ae9380;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex: none;
+}
+.timeline-item p {
+  margin: 0.25rem 0;
+}
+.timeline-item span {
+  font-size: 0.8rem;
+}
+.commerce-dialog {
+  background: #fff;
+  color: #342d29;
+  border: 1px solid #e8e2da;
+  border-radius: 18px;
+  width: min(38rem, calc(100vw - 2rem));
+  max-height: 85dvh;
+  overflow: auto;
+  padding: 1.6rem;
+  margin: auto;
+  box-shadow: 0 20px 70px #30251c2b;
+}
+.commerce-dialog::backdrop {
+  background: #332c2780;
+}
+.commerce-dialog h2 {
+  margin: 0.2rem 0;
+}
+.commerce-dialog footer {
+  margin-top: 1.3rem;
+  justify-content: flex-end;
+}
+.summary-total {
+  padding: 0.85rem;
+  background: #f7f4ef;
+  border-radius: 10px;
+  margin: 0.85rem 0;
+}
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  grid-column: 1/-1;
+}
+.check-field input {
+  width: 20px;
+  height: 20px;
+}
+.order-lines {
+  border: 1px solid #e8e2da;
+  border-radius: 12px;
+  margin: 1rem 0 0;
+  padding: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.order-lines legend {
+  font-weight: 600;
+}
+.cart-line {
+  border-top: 1px solid #e8e2da;
+  padding-top: 0.5rem;
+}
+.commerce td:first-child strong {
+  overflow-wrap: anywhere;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (max-width: 600px) {
+  .commerce-dialog {
+    padding: 1rem;
+  }
+  .detail-heading {
+    align-items: flex-start;
+  }
+  .record-actions .btn {
+    flex: 1 1 auto;
+  }
+  .pager {
+    flex-wrap: wrap;
+  }
+  .commerce th,
+  .commerce td {
+    white-space: nowrap;
+  }
+}

@@ -1,3 +1,4 @@
+from app.core.roles import RoleID
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 from app.core.auth import CurrentUser, DbSession
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/mi-perfil", tags=["Perfil de cliente"])
 
 @atomic
 def ensure_profile(db, actor):
-    if actor.rol_id != 3:
+    if actor.rol_id != RoleID.CLIENTE:
         raise HTTPException(403, "Sólo clientes")
     db.execute(select(User.id).where(User.id == actor.id).with_for_update())
     profile = db.scalar(select(Customer).where(Customer.usuario_id == actor.id))

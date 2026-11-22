@@ -1,3 +1,4 @@
+from app.core.roles import RoleID
 from fastapi import HTTPException
 from sqlalchemy import select
 from app.modules.invoices.model import Invoice
@@ -31,7 +32,7 @@ def create_invoice(db, actor, data, key):
         raise HTTPException(409, "Se requiere venta pagada")
     if sale.cliente_id is not None and sale.cliente_id != data.cliente_id:
         raise HTTPException(403, "Cliente distinto al de la venta")
-    if sale.cliente_id is None and actor.rol_id != 1:
+    if sale.cliente_id is None and actor.rol_id != RoleID.ADMINISTRADOR:
         raise HTTPException(
             403, "Administrador debe asociar al cliente para facturar venta anónima"
         )
@@ -60,7 +61,7 @@ def create_invoice(db, actor, data, key):
 
 @atomic
 def transition_invoice(db, actor, invoice_id, data):
-    if actor.rol_id != 1:
+    if actor.rol_id != RoleID.ADMINISTRADOR:
         raise HTTPException(403, "Sólo administrador")
     invoice, sale = get_invoice(db, actor, invoice_id, lock=True)
     if invoice.estado == "CANCELADA" or invoice.estado == data.estado:

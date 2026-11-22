@@ -1,4 +1,5 @@
 from app.core.auth import CurrentUser
+from app.modules.administracion.access import administrative_contract, protect_employee
 from app.core.permissions import AdminUser
 """Endpoints REST para la administración de empleados."""
 
@@ -109,6 +110,7 @@ def create_employee(
     """Registrar un nuevo empleado."""
 
     try:
+        administrative_contract("Utiliza /administracion/empleados")
         return employee_service.create_employee(
             db,
             data,
@@ -136,6 +138,9 @@ def update_employee(
     """Actualizar parcialmente los datos de un empleado."""
 
     try:
+        if data.model_fields_set & {"numero_empleado","usuario_id"}:
+            administrative_contract("La matrícula y el vínculo son inmutables")
+        protect_employee(db,employee_id)
         return employee_service.update_employee(
             db,
             employee_id,
@@ -193,6 +198,7 @@ def reactivate_employee(
     """Reactivar un empleado previamente desactivado."""
 
     try:
+        protect_employee(db,employee_id)
         return employee_service.reactivate_employee(
             db,
             employee_id,

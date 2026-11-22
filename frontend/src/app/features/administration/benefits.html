@@ -1,0 +1,93 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Configuración</p>
+      <h1>Beneficios para empleados</h1>
+    </div>
+    <button class="btn btn-primary" (click)="edit()">Nuevo beneficio</button>
+  </header>
+  @if (open()) {
+    <form class="panel page" [formGroup]="form" (ngSubmit)="save()">
+      <h2>{{ editing() ? 'Editar beneficio' : 'Nuevo beneficio' }}</h2>
+      @if (choices.loading()) {
+        <dg-skeleton shape="detail" />
+      } @else if (choices.error()) {
+        <p role="alert">
+          {{ choices.error() }} <button type="button" (click)="options()">Reintentar</button>
+        </p>
+      } @else if (choices.data(); as lists) {
+        <label class="field"
+          >Nombre *<input required formControlName="nombre" maxlength="160" /><dg-field-issue
+            [control]="form.controls.nombre" /></label
+        ><label class="field"
+          >Condiciones<textarea formControlName="condiciones" maxlength="2000"></textarea
+          ><dg-field-issue [control]="form.controls.condiciones"
+        /></label>
+        <div class="form-grid">
+          <label class="field"
+            >Vigente desde<input type="date" formControlName="inicio" /><dg-field-issue
+              [control]="form.controls.inicio" /></label
+          ><label class="field"
+            >Hasta<input
+              type="date"
+              formControlName="fin"
+              [min]="form.controls.inicio.value" /><dg-field-issue
+              [control]="form.controls.fin" /></label
+          ><label class="field"
+            >Puesto<input formControlName="puesto" placeholder="Todos los puestos" /><dg-field-issue
+              [control]="form.controls.puesto" /></label
+          ><label class="field"
+            >Sucursal<select formControlName="sucursal_id">
+              <option [ngValue]="0">Todas las sucursales</option>
+              @for (b of lists[0]; track b.id) {
+                <option [ngValue]="b.id">{{ b.nombre }}</option>
+              }</select
+            ><dg-field-issue [control]="form.controls.sucursal_id" /></label
+          ><label class="field"
+            >Empleado<select formControlName="empleado_id">
+              <option [ngValue]="0">Todos los empleados aplicables</option>
+              @for (e of lists[1]; track e.id) {
+                <option [ngValue]="e.id">{{ e.numero_empleado }}</option>
+              }</select
+            ><dg-field-issue [control]="form.controls.empleado_id"
+          /></label>
+        </div>
+        <label
+          ><input type="checkbox" formControlName="activo" /> Beneficio activo<dg-field-issue
+            [control]="form.controls.activo"
+        /></label>
+        @if (work.error()) {
+          <p role="alert">{{ work.error() }}</p>
+        }
+        <div class="actions">
+          <button type="button" class="btn" (click)="open.set(false)">Cancelar</button
+          ><button class="btn btn-primary" [disabled]="work.busy()">Guardar beneficio</button>
+        </div>
+      }
+    </form>
+  }
+  @if (list.loading()) {
+    <dg-skeleton />
+  } @else if (list.error()) {
+    <p role="alert">{{ list.error() }} <button class="btn" (click)="load()">Reintentar</button></p>
+  } @else {
+    <div class="panel">
+      @for (b of list.data(); track b.id) {
+        <div class="benefit-row">
+          <div>
+            <strong>{{ b.nombre }}</strong>
+            <p>{{ b.condiciones }}</p>
+          </div>
+          <span class="badge">{{ b.activo ? 'Activo' : 'Inactivo' }}</span
+          ><button class="btn" (click)="edit(b)">Editar</button>
+        </div>
+      } @empty {
+        <dg-empty
+          title="Aún no hay beneficios"
+          description="Agrega el primer beneficio y define a quién corresponde."
+          icon="staff"
+        />
+      }
+    </div>
+  }
+</section>

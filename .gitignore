@@ -1,0 +1,43 @@
+# ==========================================
+# DULCEGESTIÓN - GITIGNORE
+# ==========================================
+
+# Documentación Markdown
+*.md
+*.MD
+
+# Variables de entorno y credenciales
+.env
+.env.*
+*.env
+*.env.*
+
+# Python y FastAPI
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Angular y Node.js
+node_modules/
+.angular/
+dist/
+.vercel/
+
+# Archivos temporales y locales
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos SQL temporales
+backend/migracion_revision.sql
+# Scripts SQL adicionales
+*.sql
+# Reportes generados de pruebas
+backend/docs/entrega2/

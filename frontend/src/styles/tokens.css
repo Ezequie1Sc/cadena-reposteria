@@ -1,0 +1,29 @@
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/inter-latin.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+  --background: #f7f5f2;
+  --surface: #fff;
+  --surface-soft: #fcfaf7;
+  --text: #342d29;
+  --muted: #6d625a;
+  --border: #e5ded6;
+  --border-strong: #c5b8ab;
+  --accent: #a78568;
+  --primary: #49372e;
+  --primary-hover: #33251e;
+  --soft-accent: #eee4d8;
+  --positive: #286044;
+  --negative: #933b34;
+  --warning: #795217;
+  --radius: 15px;
+  --shadow: 0 3px 14px #49372e08;
+  font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+  font-optical-sizing: auto;
+}

@@ -7,9 +7,11 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Boolean,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Numeric,
@@ -39,6 +41,7 @@ class Product(Base):
 
     id: Mapped[int] = mapped_column(
         BigInteger().with_variant(Integer, "sqlite"),
+        Identity(always=True),
         primary_key=True,
         autoincrement=True,
     )
@@ -98,3 +101,14 @@ class Product(Base):
         "Category",
         back_populates="productos",
     )
+
+
+class ProductImage(Base):
+    """Mapeo de la tabla comprobada en Supabase."""
+    __tablename__ = "producto_imagenes"
+    __table_args__ = (CheckConstraint("orden >= 0", name="producto_imagenes_orden_check"),)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer,"sqlite"), Identity(always=True), primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id"), nullable=False)
+    url: Mapped[str] = mapped_column(Text,nullable=False)
+    es_principal: Mapped[bool] = mapped_column(Boolean,server_default="false",nullable=False)
+    orden: Mapped[int] = mapped_column(Integer,server_default="0",nullable=False)

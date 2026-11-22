@@ -1,0 +1,105 @@
+<section class="page">
+  <header class="page-header">
+    <h1>Importación de empleados</h1>
+    <button class="btn" (click)="download()" [disabled]="work.busy()">
+      Descargar plantilla CSV
+    </button>
+  </header>
+  <section class="panel">
+    <h2>Preparar lote</h2>
+    <p>
+      Selecciona un CSV UTF-8 o XLSX con las columnas de la plantilla. Máximo 5,000 filas y 5 MiB.
+    </p>
+    <div class="toolbar">
+      <label class="field"
+        >Archivo de empleados<input
+          type="file"
+          accept=".csv,.xlsx"
+          [disabled]="work.busy()"
+          (change)="pick($event)" /></label
+      ><button
+        class="btn btn-primary"
+        (click)="page = 0; preview()"
+        [disabled]="!file || work.busy()"
+      >
+        Validar y previsualizar
+      </button>
+    </div>
+  </section>
+  <div class="toolbar">
+    <label class="field"
+      >Recuperar lote por número<input type="number" min="1" [(ngModel)]="batchId" /></label
+    ><button class="btn" (click)="page = 0; refresh()" [disabled]="!batchId || work.busy()">
+      Consultar lote
+    </button>
+  </div>
+  @if (work.error()) {
+    <p class="alert-error" role="alert">{{ work.error() }}</p>
+  }
+  @if (work.busy() && !batch()) {
+    <dg-skeleton />
+  }
+  @if (batch(); as b) {
+    <section class="panel">
+      <h2>Lote {{ b.id }} · {{ b.estado }}</h2>
+      <p>{{ b.filas.length }} filas</p>
+      <div class="actions">
+        @if (b.estado === 'PREVIO') {
+          <button
+            class="btn btn-primary"
+            (click)="confirm(b)"
+            [disabled]="work.busy() || !applyAllowed"
+          >
+            Confirmar importación
+          </button>
+        }
+        <button class="btn" (click)="download(b.id)" [disabled]="work.busy()">
+          Exportar errores
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fila</th>
+              <th>Empleado</th>
+              <th>Correo</th>
+              <th>Puesto</th>
+              <th>Sucursal</th>
+              <th>Estado</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of b.filas.slice(page * 50, page * 50 + 50); track r.fila) {
+              <tr>
+                <td>{{ r.fila }}</td>
+                <td>
+                  {{ r.datos['nombre'] }} {{ r.datos['apellido'] }}
+                  @if (r.empleado_id) {
+                    <small>Registro #{{ r.empleado_id }}</small>
+                  }
+                </td>
+                <td>{{ r.datos['email'] }}</td>
+                <td>{{ r.datos['puesto'] }}</td>
+                <td>{{ r.datos['codigo_sucursal'] }}</td>
+                <td>{{ r.estado }}</td>
+                <td>{{ r.error || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn" [disabled]="!page" (click)="page = page - 1">Anterior</button
+        ><button
+          class="btn"
+          [disabled]="(page + 1) * 50 >= b.filas.length"
+          (click)="page = page + 1"
+        >
+          Siguiente
+        </button>
+      </div>
+    </section>
+  }
+</section>

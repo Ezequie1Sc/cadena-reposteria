@@ -1,0 +1,44 @@
+<a class="skip-link" href="#store-content" (click)="$event.preventDefault(); main.focus()"
+  >Saltar al contenido</a
+>
+<header class="store-header">
+  <div class="store-heading">
+    <a class="brand-lockup" routerLink="/employee/pos"
+      ><img src="brand.svg" width="40" height="40" alt="" /><span
+        >DulceGestión<small>Operación de tienda</small></span
+      ></a
+    >
+    <div class="branch-label">
+      <dg-icon name="store" /><span>{{
+        auth.user()?.sucursal_id ? 'Sucursal ' + auth.user()?.sucursal_id : 'Sin sucursal asignada'
+      }}</span>
+    </div>
+    <a class="store-user" routerLink="/employee/profile" aria-label="Ir a mi perfil"
+      ><span class="avatar-initials" aria-hidden="true"
+        >{{ auth.user()?.nombre?.charAt(0) }}{{ auth.user()?.apellido?.charAt(0) }}</span
+      ><strong>{{ auth.user()?.nombre }} {{ auth.user()?.apellido }}</strong></a
+    >
+    <button
+      class="shell-icon-button"
+      type="button"
+      (click)="auth.logout()"
+      aria-label="Cerrar sesión"
+      title="Cerrar sesión"
+    >
+      <dg-icon name="logout" />
+    </button>
+  </div>
+  <nav aria-label="Operaciones de sucursal">
+    @for (item of nav; track item.path) {
+      <a
+        [routerLink]="['/employee', item.path]"
+        routerLinkActive="selected"
+        ariaCurrentWhenActive="page"
+        ><dg-icon [name]="item.icon" />{{ item.label }}</a
+      >
+    }
+  </nav>
+</header>
+<main id="store-content" tabindex="-1" #main class="store-content">
+  <dg-welcome /><router-outlet />
+</main>

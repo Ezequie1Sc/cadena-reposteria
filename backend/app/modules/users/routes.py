@@ -3,10 +3,12 @@
 
 from typing import Annotated
 
+from app.core.roles import RoleID
 from fastapi import APIRouter, Depends, Path, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.modules.administracion.access import administrative_contract, protect_user
 from app.core.permissions import AdminUser
 from app.db.session import get_db
 from app.modules.users.schemas import (
@@ -134,6 +136,8 @@ def create_user(
 ) -> UserResponse:
     """Registra un usuario mediante un administrador autorizado."""
 
+    if data.rol_id == RoleID.EMPLEADO:
+        administrative_contract("Registra al empleado mediante incorporación")
     return user_service.create_user(
         db=db,
         data=data,
@@ -161,6 +165,9 @@ def update_user(
 ) -> UserResponse:
     """Actualiza un usuario respetando las reglas administrativas."""
 
+    if data.rol_id == RoleID.EMPLEADO:
+        administrative_contract("Asigna el rol Empleado mediante incorporación")
+    protect_user(db,user_id,data.model_fields_set)
     return user_service.update_user(
         db=db,
         user_id=user_id,
@@ -214,6 +221,7 @@ def reactivate_user(
 ) -> UserResponse:
     """Reactiva un usuario mediante un administrador autorizado."""
 
+    protect_user(db,user_id,{"activo"})
     return user_service.reactivate_user(
         db=db,
         user_id=user_id,

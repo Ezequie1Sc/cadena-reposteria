@@ -62,6 +62,7 @@ def move_stock(db, branch_id, lines, *, restore, resource, resource_id, actor_id
             inventario_id=inv.id,
             tipo="ENTRADA" if restore else "VENTA",
             cantidad=qty,
+            cantidad_anterior=inv.cantidad + (-qty if restore else qty), cantidad_nueva=inv.cantidad,
             motivo="Cancelación comercial" if restore else "Reserva por venta",
             referencia_tipo=resource,
             referencia_id=resource_id,

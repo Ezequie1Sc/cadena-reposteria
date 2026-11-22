@@ -1,5 +1,6 @@
 """Coordinación de los pedidos existentes con venta, pago e historial."""
 
+from app.core.roles import RoleID
 from fastapi import HTTPException
 from sqlalchemy import select
 from app.modules.orders.service import order_service as legacy
@@ -35,7 +36,7 @@ def create_order(db, actor, data, key=None):
     from app.core.permissions import scope_branch
     from app.shared.commerce import own_customer
 
-    if actor.rol_id == 3:
+    if actor.rol_id == RoleID.CLIENTE:
         if own_customer(db, actor).id != data.cliente_id:
             raise HTTPException(403, "Cliente no autorizado")
     else:
@@ -81,7 +82,7 @@ def update_order(db, actor, order_id, data, reason="Cambio de estado de pedido")
     authorize(db, actor, order)
     if data.estado == order.estado:
         raise HTTPException(409, "El pedido ya tiene ese estado")
-    if actor.rol_id == 3 and (
+    if actor.rol_id == RoleID.CLIENTE and (
         data.estado != OrderStatus.CANCELADO or order.estado != "PENDIENTE"
     ):
         raise HTTPException(403, "El cliente sólo puede cancelar un pedido pendiente")

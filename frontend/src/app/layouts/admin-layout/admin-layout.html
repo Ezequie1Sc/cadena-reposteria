@@ -1,0 +1,87 @@
+<a class="skip-link" href="#admin-content" (click)="$event.preventDefault(); main.focus()"
+  >Saltar al contenido</a
+>
+<ng-template #links>
+  @for (group of groups; track group.label) {
+    <div class="nav-set">
+      <h2>{{ group.label }}</h2>
+      @for (item of group.items; track item.path) {
+        <a
+          [routerLink]="['/admin', item.path]"
+          routerLinkActive="selected"
+          ariaCurrentWhenActive="page"
+          (click)="closeMenu()"
+        >
+          <dg-icon [name]="item.icon" />{{ item.label }}
+        </a>
+      }
+    </div>
+  }
+</ng-template>
+<div class="admin-shell">
+  <aside class="admin-rail" aria-label="Administración">
+    <a class="brand-lockup" routerLink="/admin/dashboard"
+      ><img src="brand.svg" width="40" height="40" alt="" /><span
+        >DulceGestión<small>Administración</small></span
+      ></a
+    >
+    <nav aria-label="Navegación administrativa"><ng-container *ngTemplateOutlet="links" /></nav>
+    <button class="logout-link" type="button" (click)="auth.logout()">
+      <dg-icon name="logout" />Cerrar sesión
+    </button>
+  </aside>
+
+  <div class="admin-workspace">
+    <header class="admin-topbar">
+      <button
+        class="mobile-menu shell-icon-button"
+        type="button"
+        (click)="openMenu()"
+        aria-label="Abrir navegación administrativa"
+        aria-haspopup="dialog"
+      >
+        <dg-icon name="menu" />
+      </button>
+      <div class="crumb">
+        <span>Administración</span><dg-icon name="arrow" /><strong>{{ section() }}</strong>
+      </div>
+      <div class="account-identity">
+        <span class="avatar-initials" aria-hidden="true"
+          >{{ auth.user()?.nombre?.charAt(0) }}{{ auth.user()?.apellido?.charAt(0) }}</span
+        >
+        <div>
+          <strong>{{ auth.user()?.nombre }} {{ auth.user()?.apellido }}</strong
+          ><small>Administrador</small>
+        </div>
+      </div>
+    </header>
+    <main id="admin-content" tabindex="-1" #main class="admin-content"><router-outlet /></main>
+  </div>
+</div>
+<dialog
+  class="admin-drawer"
+  #drawer
+  aria-label="Navegación administrativa"
+  (click)="$event.target === drawer && closeMenu()"
+>
+  <div class="drawer-inner">
+    <div class="drawer-heading">
+      <a class="brand-lockup" routerLink="/admin/dashboard" (click)="closeMenu()"
+        ><img src="brand.svg" width="38" height="38" alt="" /><span
+          >DulceGestión<small>Administración</small></span
+        ></a
+      ><button
+        class="shell-icon-button"
+        (click)="closeMenu()"
+        aria-label="Cerrar navegación"
+        autofocus
+      >
+        <dg-icon name="close" />
+      </button>
+    </div>
+    <nav aria-label="Secciones administrativas"><ng-container *ngTemplateOutlet="links" /></nav>
+    <button class="logout-link" (click)="closeMenu(); auth.logout()">
+      <dg-icon name="logout" />Cerrar sesión
+    </button>
+  </div>
+</dialog>

@@ -79,7 +79,7 @@ def create_payment(db, actor, data, key):
 
 @atomic
 def transition_payment(db, actor, payment_id, data):
-    if actor.rol_id not in {1, 2}:
+    if actor.rol_id not in {RoleID.ADMINISTRADOR, RoleID.EMPLEADO}:
         raise HTTPException(403, "Sólo personal puede verificar pagos")
     payment, sale = get_payment(db, actor, payment_id, lock=True)
     if payment.estado != "PENDIENTE":

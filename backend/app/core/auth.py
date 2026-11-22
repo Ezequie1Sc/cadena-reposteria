@@ -1,18 +1,17 @@
-
 """Dependencias de autenticación para endpoints protegidos."""
 
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import Boolean, column, select, table
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.core.jwt import TokenValidationError, decode_access_token
+from app.core.jwt import TokenValidationError, verified_claims
 from app.db.session import get_db
 from app.modules.users.model import User
 from app.modules.users.repository import user_repository
-from app.shared.models.role_reference import roles_reference
+from app.core.roles import catalog_role_active
 
 
 # Extrae credenciales del encabezado Authorization: Bearer.
@@ -40,34 +39,9 @@ def authentication_error() -> HTTPException:
 def validate_active_role(db: Session, role_id: int) -> None:
     """Comprueba que el rol del usuario exista y esté activo."""
 
-    if role_id not in {1, 2, 3}:
+    is_active = catalog_role_active(db, role_id)
+    if is_active is None:
         raise HTTPException(status_code=403, detail="El usuario no tiene un rol válido")
-
-    role_exists = db.scalar(
-        select(roles_reference.c.id).where(
-            roles_reference.c.id == role_id
-        )
-    )
-
-    if role_exists is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="El usuario no tiene un rol válido",
-        )
-
-    # La tabla real tiene 'activo', pero la referencia
-    # SQLAlchemy solamente declara la columna 'id'.
-    roles_table = table(
-        "roles",
-        column("id"),
-        column("activo", Boolean),
-    )
-
-    is_active = db.scalar(
-        select(roles_table.c.activo).where(
-            roles_table.c.id == role_id
-        )
-    )
 
     if is_active is not True:
         raise HTTPException(
@@ -94,9 +68,8 @@ def get_current_user(
         raise authentication_error()
 
     try:
-        user_id = decode_access_token(
-            credentials.credentials
-        )
+        claims = verified_claims(credentials.credentials)
+        user_id = int(claims["sub"])
     except TokenValidationError as exc:
         raise authentication_error() from exc
 
@@ -113,6 +86,19 @@ def get_current_user(
         user.rol_id,
     )
 
+    from app.modules.administracion.access import check_employee_session
+
+    check_employee_session(db, user)
+    # Also enforce the cutoff when the rollout flag is switched off after activation.
+    if db.get_bind().dialect.name == "postgresql":
+        cutoff = db.scalar(
+            text("""SELECT max(v.fecha) FROM gestion_interna.evento v
+            JOIN public.empleados e ON e.id=v.empleado_id
+            WHERE e.usuario_id=:id AND v.accion='REVOCADO'"""),
+            {"id": user.id},
+        )
+        if cutoff and claims["iat"] <= cutoff.timestamp():
+            raise authentication_error()
     return user
 
 

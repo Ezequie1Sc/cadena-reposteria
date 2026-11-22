@@ -57,7 +57,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
 )
 
@@ -125,3 +125,11 @@ app.include_router(customers_self_routes)
 from app.modules.branches.proximity_routes import router as branches_proximity_routes
 
 app.include_router(branches_proximity_routes)
+
+# El despliegue activa estas rutas después de instalar la revisión administrativa.
+if settings.administracion_habilitada:
+    from app.modules.administracion import catalog, company, images, imports, onboarding
+    from app.modules.administracion.upload_limit import UploadLimit
+    app.add_middleware(UploadLimit)
+    for administrative_router in (catalog.router, company.router, images.router, imports.router, onboarding.router):
+        app.include_router(administrative_router)

@@ -484,6 +484,7 @@ def test_entry_and_exit(
         inventario_id=1,
         tipo=movement_type.value,
         cantidad=quantity,
+        cantidad_anterior=15, cantidad_nueva=expected,
         motivo="Control",
         referencia_tipo=None,
         referencia_id=None,
@@ -582,6 +583,7 @@ def test_register_sale_records_reference(
         inventario_id=1,
         tipo="VENTA",
         cantidad=3,
+        cantidad_anterior=15, cantidad_nueva=12,
         motivo="Venta de producto",
         referencia_tipo="VENTA",
         referencia_id=50,
@@ -661,7 +663,8 @@ def test_adjust_stock(
         inventario_id=1,
         tipo="AJUSTE",
         cantidad=movement_quantity,
-        motivo=f"{direction}: Conteo",
+        cantidad_anterior=15, cantidad_nueva=final_quantity,
+        motivo="Conteo",
         usuario_id=7,
     )
 

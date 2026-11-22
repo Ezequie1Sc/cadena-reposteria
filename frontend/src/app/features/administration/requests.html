@@ -1,0 +1,108 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Personal</p>
+      <h1>Expedientes de incorporación</h1>
+    </div>
+    <label class="field"
+      >Estado<select [(ngModel)]="state" (ngModelChange)="offset = 0; load()">
+        @for (s of states; track s) {
+          <option>{{ s }}</option>
+        }
+      </select></label
+    >
+  </header>
+  <section class="panel">
+    @if (list.loading()) {
+      <dg-skeleton />
+    } @else if (list.error()) {
+      <p role="alert">
+        {{ list.error() }} <button class="btn" (click)="load()">Reintentar</button>
+      </p>
+    } @else if (!list.data()?.length) {
+      <dg-empty
+        title="Sin expedientes en este estado"
+        description="Selecciona otro estado para consultar el historial."
+        icon="staff"
+      />
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Puesto y sucursal</th>
+              <th>Fecha de alta</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of list.data(); track p.empleado_id) {
+              <tr>
+                <td>
+                  <strong>{{ p.nombre }} {{ p.apellido }}</strong
+                  ><small>{{ p.email }} · {{ p.numero_empleado }}</small>
+                </td>
+                <td>{{ p.puesto }} · {{ p.sucursal }}</td>
+                <td>{{ p.creado.slice(0, 10) }}</td>
+                <td><button class="btn" (click)="select(p)">Revisar</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    <nav class="actions" aria-label="Paginación">
+      <button
+        class="btn"
+        [disabled]="!offset || list.loading()"
+        (click)="offset = offset - 100; load()"
+      >
+        Anterior</button
+      ><button
+        class="btn"
+        [disabled]="list.data()?.length !== 100 || list.loading()"
+        (click)="offset = offset + 100; load()"
+      >
+        Siguiente
+      </button>
+    </nav>
+  </section>
+  @if (selected(); as p) {
+    <section class="panel">
+      <h2>{{ p.nombre }} {{ p.apellido }} · {{ p.numero_empleado }}</h2>
+      <p>{{ p.estado }} · {{ p.sucursal }}</p>
+      <label class="field"
+        >Motivo de la decisión<textarea [(ngModel)]="reason" maxlength="500"></textarea>
+      </label>
+      @if (write.error()) {
+        <p role="alert">{{ write.error() }}</p>
+      }
+      <div class="actions">
+        @for (a of actions[p.estado]; track a) {
+          <button class="btn" (click)="decide(p, a)">{{ labels[a] }}</button>
+        }
+      </div>
+      <h3>Historial</h3>
+      @if (events.loading()) {
+        <dg-skeleton />
+      } @else if (events.error()) {
+        <p role="alert">
+          {{ events.error() }} <button class="btn" (click)="select(p)">Reintentar</button>
+        </p>
+      } @else {
+        @for (e of events.data(); track $index) {
+          <p class="event">
+            <strong>{{ e.accion }}</strong> · {{ e.fecha }}
+            @if (e.actor_id) {
+              · Usuario {{ e.actor_id }}
+            }
+            {{ e.motivo }}
+          </p>
+        } @empty {
+          <p>Sin eventos registrados.</p>
+        }
+      }
+    </section>
+  }
+</section>

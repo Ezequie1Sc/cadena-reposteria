@@ -79,6 +79,8 @@ class InventoryMovementResponse(BaseModel):
     id: int
     inventario_id: int
     tipo: MovementType
+    cantidad_anterior: int | None = None
+    cantidad_nueva: int | None = None
     cantidad: int
     motivo: str | None
     referencia_tipo: str | None
