@@ -147,10 +147,11 @@ def db():
             "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
         )
 
+        connection.exec_driver_sql("ALTER TABLE roles ADD COLUMN nombre TEXT")
         connection.execute(
             text(
-                "INSERT INTO roles (id, activo) VALUES "
-                "(1, 1), (2, 1), (3, 1)"
+                "INSERT INTO roles (id, nombre, activo) VALUES "
+                "(1, 'Administrador', 1), (2, 'Empleado', 1), (3, 'Cliente', 1)"
             )
         )
 

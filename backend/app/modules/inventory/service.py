@@ -220,6 +220,8 @@ class InventoryService:
 
             new_quantity = inventory.cantidad + delta
 
+            if new_quantity > 2147483647:
+                raise HTTPException(422, "Existencias fuera de rango")
             if new_quantity < 0:
                 raise HTTPException(
                     status_code=409,
@@ -237,6 +239,7 @@ class InventoryService:
                 inventario_id=inventory.id,
                 tipo=movement_type.value,
                 cantidad=abs(delta),
+                cantidad_anterior=new_quantity-delta, cantidad_nueva=new_quantity,
                 motivo=motivo,
                 referencia_tipo=referencia_tipo,
                 referencia_id=referencia_id,
@@ -341,16 +344,14 @@ class InventoryService:
                 data.cantidad_final,
             )
 
-            direction = (
-                "INCREMENTO" if difference > 0 else "DISMINUCION"
-            )
 
             inventory_repository.create_movement(
                 db,
                 inventario_id=inventory.id,
                 tipo=MovementType.AJUSTE.value,
                 cantidad=abs(difference),
-                motivo=f"{direction}: {data.motivo}",
+                motivo=data.motivo,
+                cantidad_anterior=data.cantidad_final-difference, cantidad_nueva=data.cantidad_final,
                 usuario_id=usuario_id,
             )
 
@@ -425,6 +426,8 @@ class InventoryService:
             source = locked[inventory_id]
             destination = locked[destination_info.id]
 
+            if destination.cantidad + data.cantidad > 2147483647:
+                raise HTTPException(422, "Existencias de destino fuera de rango")
             if source.cantidad < data.cantidad:
                 raise HTTPException(
                     status_code=409,
@@ -449,6 +452,7 @@ class InventoryService:
                 tipo=MovementType.TRASPASO.value,
                 cantidad=data.cantidad,
                 motivo=data.motivo or "Salida por traspaso",
+                cantidad_anterior=source.cantidad+data.cantidad, cantidad_nueva=source.cantidad,
                 referencia_tipo="INVENTARIO_DESTINO",
                 referencia_id=destination.id,
                 usuario_id=usuario_id,
@@ -460,6 +464,7 @@ class InventoryService:
                 tipo=MovementType.TRASPASO.value,
                 cantidad=data.cantidad,
                 motivo=data.motivo or "Entrada por traspaso",
+                cantidad_anterior=destination.cantidad-data.cantidad, cantidad_nueva=destination.cantidad,
                 referencia_tipo="INVENTARIO_ORIGEN",
                 referencia_id=source.id,
                 usuario_id=usuario_id,

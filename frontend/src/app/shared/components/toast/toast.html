@@ -1,0 +1,25 @@
+<section class="toast-stack" aria-live="polite" aria-label="Notificaciones">
+  @for (item of toast.items(); track item.id) {
+    <div
+      [class]="'toast ' + item.type"
+      [class.closing]="item.closing"
+      (mouseenter)="toast.pause(item.id, 'hover')"
+      (mouseleave)="toast.resume(item.id, 'hover')"
+      (focusin)="toast.pause(item.id, 'focus')"
+      (focusout)="toast.resume(item.id, 'focus')"
+      [attr.role]="item.type === 'error' ? 'alert' : 'status'"
+    >
+      <span class="mark"><dg-icon [name]="item.type" [size]="23" /></span>
+      <div>
+        <strong>{{ item.title }}</strong>
+        <p>{{ item.description }}</p>
+      </div>
+      <button type="button" aria-label="Cerrar notificación" (click)="toast.dismiss(item.id)">
+        <dg-icon name="close" [size]="16" />
+      </button>
+      @if (item.duration) {
+        <i aria-hidden="true" [style.animation-duration.ms]="item.duration"></i>
+      }
+    </div>
+  }
+</section>

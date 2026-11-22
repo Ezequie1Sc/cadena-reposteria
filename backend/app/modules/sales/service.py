@@ -53,7 +53,7 @@ def create_sale(db, actor, data, key):
             Employee.sucursal_id == data.sucursal_id,
             Employee.activo.is_(True),
             User.activo.is_(True),
-            User.rol_id == 2,
+            User.rol_id == RoleID.EMPLEADO,
         )
     )
     if actor.rol_id == RoleID.EMPLEADO:

@@ -1,0 +1,45 @@
+<section class="page">
+  <header>
+    <p class="eyebrow">Configuración</p>
+    <h1>Identidad empresarial</h1>
+  </header>
+  @if (read.loading()) {
+    <dg-skeleton shape="detail" />
+  } @else if (read.error()) {
+    <p role="alert">{{ read.error() }} <button class="btn" (click)="load()">Reintentar</button></p>
+  } @else {
+    <form class="panel page" [formGroup]="form" (ngSubmit)="save()">
+      @if (!read.data()) {
+        <p>Configura la identidad para habilitar la primera aprobación de empleados.</p>
+      }
+      <div class="form-grid">
+        <label class="field"
+          >Nombre comercial *<input
+            formControlName="nombre"
+            required
+            maxlength="150" /><dg-field-issue [control]="form.controls.nombre" /></label
+        ><label class="field"
+          >Color institucional<input type="color" formControlName="color" /><dg-field-issue
+            [control]="form.controls.color" /></label
+        ><label class="field"
+          >URL del logotipo<input type="url" formControlName="logotipo" /><dg-field-issue
+            [control]="form.controls.logotipo"
+        /></label>
+      </div>
+      <label class="field"
+        >Mensaje de bienvenida<textarea formControlName="mensaje" maxlength="2000"></textarea
+        ><dg-field-issue [control]="form.controls.mensaje"
+      /></label>
+      <div class="form-grid">
+        <label class="field"
+          >Firma<input formControlName="firma" maxlength="300" /><dg-field-issue
+            [control]="form.controls.firma" /></label
+        ><label class="field"
+          >Contacto<input formControlName="contacto" maxlength="300" /><dg-field-issue
+            [control]="form.controls.contacto"
+        /></label>
+      </div>
+      <div><button class="btn btn-primary">Guardar identidad</button></div>
+    </form>
+  }
+</section>

@@ -1,0 +1,62 @@
+<main class="join-shell">
+  <article class="panel page">
+    <header>
+      <img src="brand.svg" width="48" height="48" alt="DulceGestión" />
+      <h1>Incorporación de empleado</h1>
+    </header>
+    @if (!valid) {
+      <p role="alert">
+        Abre el enlace completo de tu invitación o solicita uno nuevo al administrador.
+      </p>
+    } @else if (step() === 1) {
+      <p>Verifica el correo autorizado para comenzar tu solicitud.</p>
+      <button class="btn btn-primary" [disabled]="work.busy()" (click)="send()">
+        Solicitar código
+      </button>
+    } @else if (step() === 2) {
+      <label class="field"
+        >Código recibido<input
+          [formControl]="code"
+          autocomplete="one-time-code"
+          inputmode="numeric"
+          maxlength="6"
+      /></label>
+      <div class="actions">
+        <button class="btn" [disabled]="work.busy()" (click)="send()">Reenviar código</button
+        ><button
+          class="btn btn-primary"
+          [disabled]="work.busy() || code.invalid"
+          (click)="verify()"
+        >
+          Verificar
+        </button>
+      </div>
+    } @else if (step() === 3) {
+      <form class="page" [formGroup]="personal" (ngSubmit)="submit()">
+        <label class="field"
+          >Nombre *<input required formControlName="nombre" maxlength="100" /><dg-field-issue
+            [control]="personal.controls.nombre" /></label
+        ><label class="field"
+          >Apellidos *<input required formControlName="apellido" maxlength="100" /><dg-field-issue
+            [control]="personal.controls.apellido" /></label
+        ><label class="field"
+          >Crear contraseña *<input
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="12"
+            maxlength="128"
+            formControlName="password" /><small>De 12 a 128 caracteres, con letras y números.</small
+          ><dg-field-issue [control]="personal.controls.password" /></label
+        ><button class="btn btn-primary" [disabled]="work.busy()">Enviar solicitud</button>
+      </form>
+    } @else {
+      <h2>Solicitud pendiente de aprobación</h2>
+      <p>Recibirás la decisión en tu correo autorizado.</p>
+    }
+    @if (work.error()) {
+      <p class="alert-error" role="alert">{{ work.error() }}</p>
+    }
+    <a routerLink="/login">Ir al inicio de sesión</a>
+  </article>
+</main>

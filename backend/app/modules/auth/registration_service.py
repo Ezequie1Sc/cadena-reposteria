@@ -1,7 +1,7 @@
 """Lógica de negocio para el registro público de clientes."""
 
 from fastapi import HTTPException, status
-from sqlalchemy import Boolean, column, select, table
+from app.core.roles import RoleID, catalog_role_active
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -13,13 +13,7 @@ from app.modules.auth.registration_schemas import (
 from app.modules.users.repository import user_repository
 
 
-CUSTOMER_ROLE_ID = 3
-
-roles_table = table(
-    "roles",
-    column("id"),
-    column("activo", Boolean),
-)
+CUSTOMER_ROLE_ID = RoleID.CLIENTE
 
 
 class CustomerRegistrationService:
@@ -29,9 +23,7 @@ class CustomerRegistrationService:
     def _validate_customer_role(db: Session) -> None:
         """Comprueba que el rol Cliente exista y esté activo."""
 
-        role_active = db.scalar(
-            select(roles_table.c.activo).where(roles_table.c.id == CUSTOMER_ROLE_ID)
-        )
+        role_active = catalog_role_active(db, CUSTOMER_ROLE_ID, lock=True)
 
         if role_active is not True:
             raise HTTPException(

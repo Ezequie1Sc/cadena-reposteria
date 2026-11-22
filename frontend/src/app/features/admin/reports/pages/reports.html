@@ -1,0 +1,127 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Análisis del negocio</p>
+      <h1>Reportes</h1>
+      <p class="muted">Consulta resultados por periodo, sucursal y tipo de operación.</p>
+    </div>
+    <a class="btn" routerLink="/admin/dashboard">Ver resumen general</a>
+  </header>
+  <nav class="report-tabs" aria-label="Tipo de reporte">
+    @for (name of types; track name) {
+      <button
+        class="btn"
+        [class.current]="applied().name === name"
+        [attr.aria-pressed]="applied().name === name"
+        (click)="select(name)"
+      >
+        {{ titles[name] }}
+      </button>
+    }
+  </nav>
+  <form class="panel filters" (ngSubmit)="apply()">
+    @if (loading() && !branches().length) {
+      <dg-skeleton shape="filter" />
+    } @else {
+      <label class="field"
+        >Sucursal<select [(ngModel)]="draft.branch" name="branch">
+          <option value="">Todas las sucursales</option>
+          @for (b of branches(); track b.id) {
+            <option [value]="b.id">{{ b.nombre }}</option>
+          }
+        </select></label
+      >
+    }
+    @if (draft.name !== 'inventarios') {
+      <label class="field">Desde<input type="date" name="from" [(ngModel)]="draft.from" /></label
+      ><label class="field"
+        >Hasta (inclusive)<input type="date" name="to" [(ngModel)]="draft.to"
+      /></label>
+    }
+    @if (draft.name === 'ventas') {
+      <label class="field"
+        >Agrupar por<select [(ngModel)]="draft.group" name="group">
+          <option value="dia">Día</option>
+          <option value="semana">Semana</option>
+          <option value="mes">Mes</option>
+          <option value="anio">Año</option>
+          <option value="sucursal">Sucursal</option>
+          <option value="empleado">Empleado</option>
+        </select></label
+      >
+      <label class="field"
+        >Orden<select name="order" [(ngModel)]="draft.order">
+          <option value="grupo">Por grupo</option>
+          <option value="total_desc">Mayor importe</option>
+          <option value="total_asc">Menor importe</option>
+        </select></label
+      >
+    }
+    @if (draft.name === 'productos') {
+      <label class="check"
+        ><input type="checkbox" name="least" [(ngModel)]="draft.least" />Menos vendidos
+        primero</label
+      >
+    }
+    @if (draft.name === 'pagos') {
+      <label class="check"
+        ><input type="checkbox" name="paid" [(ngModel)]="draft.paid" />Solo confirmados</label
+      >
+    }
+    @if (draft.name === 'inventarios') {
+      <label class="check"
+        ><input type="checkbox" name="low" [(ngModel)]="draft.low" />Solo con stock bajo</label
+      >
+    }
+    @if (draft.name === 'movimientos') {
+      <label class="field"
+        >Tipo<select name="movement" [(ngModel)]="draft.movement">
+          <option value="">Todos</option>
+          @for (type of ['ENTRADA', 'SALIDA', 'VENTA', 'AJUSTE', 'TRASPASO']; track type) {
+            <option [value]="type">{{ type }}</option>
+          }
+        </select></label
+      >
+    }
+    <button class="btn btn-primary" type="submit" [disabled]="loading()">Aplicar filtros</button>
+    @if (draft.name !== 'inventarios') {
+      <small class="zone">Fechas en la zona horaria de Mérida.</small>
+    }
+    @if (formError()) {
+      <p role="alert" class="alert-error">{{ formError() }}</p>
+    }
+  </form>
+  <div class="panel result">
+    <header>
+      <h2>{{ titles[applied().name] }}</h2>
+      @if (!loading() && !error() && rows().length) {
+        <span>Página {{ page() }}</span>
+      }
+    </header>
+    @if (loading()) {
+      <dg-skeleton shape="table" />
+    } @else if (error()) {
+      <div class="state" role="alert">
+        <p>{{ error() }}</p>
+        <button class="btn" (click)="load()">Reintentar</button>
+      </div>
+    } @else if (!rows().length) {
+      <dg-empty
+        title="Sin registros en este periodo"
+        description="Cambia el intervalo o consulta otra sucursal."
+        icon="chart"
+      />
+    } @else {
+      <dg-data-table [caption]="titles[applied().name]" [headers]="headers()" [rows]="cells()" />
+    }
+    @if (!loading() && !error() && (hasNext() || page() > 1)) {
+      <nav class="pages" aria-label="Páginas del reporte">
+        <button class="btn" [disabled]="page() === 1" (click)="page.set(page() - 1)">
+          Anterior</button
+        ><button class="btn" [disabled]="!hasNext()" (click)="page.set(page() + 1)">
+          Siguiente
+        </button>
+      </nav>
+    }
+  </div>
+</section>

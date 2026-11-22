@@ -1,3 +1,4 @@
+from app.core.roles import RoleID
 from app.core.auth import CurrentUser
 from app.core.permissions import AdminUser
 
@@ -54,7 +55,7 @@ def get_categories(
         description="Mostrar únicamente categorías activas",
     ),
 ):
-    if actor.rol_id != 1 and not solo_activos:
+    if actor.rol_id != RoleID.ADMINISTRADOR and not solo_activos:
         raise HTTPException(status_code=403, detail="Solo administración puede consultar inactivos")
 
     try:
@@ -94,7 +95,7 @@ def get_category(
             category_id=category_id,
         )
 
-        if category is None or (actor.rol_id != 1 and not category.activo):
+        if category is None or (actor.rol_id != RoleID.ADMINISTRADOR and not category.activo):
             raise HTTPException(
                 status_code=404,
                 detail="Categoría no encontrada",

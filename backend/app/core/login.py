@@ -85,6 +85,8 @@ def authenticate_user(
     except HTTPException:
         raise invalid_credentials() from None
 
+    from app.modules.administracion.access import check_employee_session
+    check_employee_session(db,user)
     return user
 
 

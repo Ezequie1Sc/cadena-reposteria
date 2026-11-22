@@ -1,0 +1,404 @@
+<section class="page commerce">
+  <header class="page-header">
+    <div>
+      <h1>{{ modules[resource()].title }}</h1>
+      <p class="muted">{{ modules[resource()].description }}</p>
+    </div>
+    <div class="actions">
+      @switch (resource()) {
+        @case ('pedidos') {
+          <button class="btn btn-primary" (click)="task.set(tasks.order)">Nuevo pedido</button>
+        }
+        @case ('ventas') {
+          @if (auth.isAdmin()) {
+            <button class="btn" (click)="expireSales()">Revisar ventas vencidas</button>
+          }
+          @if (!auth.isAdmin()) {
+            <a routerLink="/employee/pos" class="btn btn-primary">Abrir punto de venta</a>
+          }
+        }
+        @case ('tickets') {
+          <a [routerLink]="url('ventas')" class="btn">Generar desde una venta</a>
+        }
+        @case ('facturas') {
+          <a [routerLink]="url('ventas')" class="btn">Solicitar desde una venta</a>
+        }
+        @case ('pagos') {
+          <a [routerLink]="url('ventas')" class="btn">Cobrar una venta</a
+          ><a [routerLink]="url('pedidos')" class="btn">Cobrar un pedido</a>
+        }
+      }
+    </div>
+  </header>
+
+  @if (resource() === 'pedidos') {
+    <form class="panel filters" (ngSubmit)="findOrder()" ngNativeValidate>
+      <label class="field"
+        >Número de pedido
+        <input
+          type="search"
+          name="numeroPedido"
+          required
+          [ngModel]="orderNumber()"
+          (ngModelChange)="orderNumber.set($event)"
+          autocomplete="off"
+        />
+      </label>
+      <button type="submit" class="btn" [disabled]="findingOrder() || !orderNumber().trim()">
+        {{ findingOrder() ? 'Buscando…' : 'Buscar pedido' }}
+      </button>
+      @if (lookupError()) {
+        <p class="alert-error" role="alert">{{ lookupError() }}</p>
+      }
+    </form>
+  }
+
+  @if (detailLoading()) {
+    <dg-skeleton shape="detail" />
+  }
+  @if (detailError()) {
+    <div class="panel">
+      <p class="alert-error" role="alert">{{ detailError() }}</p>
+      <div class="actions">
+        <button class="btn" (click)="close()">Cerrar detalle</button
+        ><button class="btn" (click)="reloadDetail()">Reintentar</button>
+      </div>
+    </div>
+  }
+
+  @if (selected(); as row) {
+    <article class="panel detail" aria-label="Detalle del registro">
+      <div class="detail-heading">
+        <div>
+          <p class="eyebrow">Detalle de {{ modules[resource()].singular.toLowerCase() }}</p>
+          <h2>{{ nameOf(row, resource()) }}</h2>
+          <span class="badge" [attr.data-state]="stateOf(row)">{{ human(stateOf(row)) }}</span>
+        </div>
+        <button class="btn" (click)="close()">Cerrar detalle</button>
+      </div>
+      <dl class="facts">
+        @for (f of facts(row, resource()); track f.label) {
+          <div>
+            <dt>{{ f.label }}</dt>
+            <dd>{{ f.value }}</dd>
+          </div>
+        }
+      </dl>
+      @if (row.detalles || row.venta?.detalles) {
+        <div class="table-wrap">
+          <table>
+            <caption>
+              Productos de la operación
+            </caption>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio unitario</th>
+                <th>Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of row.detalles || row.venta?.detalles; track line.producto_id) {
+                <tr>
+                  <td>{{ line.producto_nombre || 'Producto #' + line.producto_id }}</td>
+                  <td>{{ line.cantidad }}</td>
+                  <td>{{ amount(line.precio_unitario) }}</td>
+                  <td>{{ amount(line.subtotal) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      @if (row.pagos?.length) {
+        <h3>Pagos asociados</h3>
+        <ul class="plain-list">
+          @for (p of row.pagos; track p.id) {
+            <li>
+              <a [routerLink]="url('pagos')" [queryParams]="{ id: p.id }">Pago #{{ p.id }}</a> ·
+              {{ row.metodos?.[p.metodo_pago_id!] || p.proveedor }} · {{ human(p.estado) }} ·
+              {{ amount(p.monto) }}
+            </li>
+          }
+        </ul>
+      }
+      @if (row.aviso) {
+        <p class="muted">{{ row.aviso }}</p>
+      }
+      <div class="actions record-actions">
+        @switch (resource()) {
+          @case ('ventas') {
+            @if (canPay(row)) {
+              <button class="btn btn-primary" (click)="task.set(tasks.payment)">
+                Registrar pago
+              </button>
+            }
+            @if (canInvoice(row)) {
+              <button class="btn" (click)="task.set(tasks.invoice)">Solicitar factura</button>
+            }
+            <button class="btn" [disabled]="processing()" (click)="ticket(row)">
+              Obtener ticket
+            </button>
+            @if (
+              row.vence_at &&
+              (row.estado === 'PENDIENTE' || (auth.isAdmin() && row.estado === 'CONFIRMADA'))
+            ) {
+              <button class="btn btn-danger" (click)="task.set(tasks.cancel)">
+                Cancelar venta
+              </button>
+            }
+            @if (row.pedido_id) {
+              <a class="btn" [routerLink]="url('pedidos')" [queryParams]="{ id: row.pedido_id }"
+                >Ver pedido</a
+              >
+            }
+          }
+          @case ('pedidos') {
+            @if (canPay(row)) {
+              <button class="btn btn-primary" (click)="task.set(tasks.payment)">
+                Registrar pago</button
+              ><button class="btn btn-danger" (click)="orderState('CANCELADO')">
+                Cancelar pedido
+              </button>
+            }
+            @if (next[row.estado || '']; as nextState) {
+              <button class="btn btn-primary" (click)="orderState(nextState)">
+                Cambiar a {{ human(nextState).toLowerCase() }}
+              </button>
+            }
+            @if (auth.isAdmin() && next[row.estado || '']) {
+              <a class="btn" [routerLink]="url('ventas')">Gestionar devolución desde ventas</a>
+            }
+          }
+          @case ('pagos') {
+            @if (row.estado === 'PENDIENTE' && row.proveedor === 'INTERNO') {
+              <button class="btn btn-primary" (click)="paymentState('APROBADO')">
+                Verificar pago</button
+              ><button class="btn" (click)="paymentState('RECHAZADO')">Rechazar</button
+              ><button class="btn btn-danger" (click)="paymentState('CANCELADO')">
+                Cancelar pago
+              </button>
+            }
+            <a class="btn" [routerLink]="url('ventas')" [queryParams]="{ id: row.venta_id }"
+              >Ver venta</a
+            >
+          }
+          @case ('tickets') {
+            <button class="btn btn-primary" [disabled]="processing()" (click)="print(row)">
+              Imprimir ticket</button
+            ><a class="btn" [routerLink]="url('ventas')" [queryParams]="{ id: row.venta?.id }"
+              >Ver venta</a
+            >
+          }
+          @case ('facturas') {
+            @if (auth.isAdmin() && row.estado === 'PENDIENTE') {
+              <button class="btn btn-primary" (click)="invoiceState('EMITIDA')">
+                Registrar emisión externa
+              </button>
+            }
+            @if (auth.isAdmin() && (row.estado === 'EMITIDA' || row.estado === 'PENDIENTE')) {
+              <button class="btn btn-danger" (click)="invoiceState('CANCELADA')">
+                Cancelar solicitud
+              </button>
+            }
+            <a class="btn" [routerLink]="url('ventas')" [queryParams]="{ id: row.venta_id }"
+              >Ver venta</a
+            >
+          }
+        }
+      </div>
+      @if (resource() !== 'tickets') {
+        <section class="timeline" aria-label="Historial del registro">
+          <h3>Historial</h3>
+          @for (event of history(); track event.id) {
+            <div class="timeline-item">
+              <i></i>
+              <div>
+                <strong>{{ human(event.estado) }}</strong><span class="muted">
+                  · {{ dateLabel(event.created_at) }} · Usuario #{{ event.usuario_id }}</span
+                >
+                @if (event.motivo) {
+                  <p>{{ event.motivo }}</p>
+                }
+              </div>
+            </div>
+          }
+          @if (!history().length && !historyLoading() && !historyError()) {
+            <p class="muted">Sin eventos registrados.</p>
+          }
+          @if (historyLoading()) {
+            <dg-skeleton shape="table" />
+          }
+          @if (historyError()) {
+            <p role="alert" class="alert-error">{{ historyError() }}</p>
+          }
+          @if (hasHistory() || historyError()) {
+            <button class="btn" [disabled]="historyLoading()" (click)="loadHistory()">
+              Cargar historial
+            </button>
+          }
+        </section>
+      }
+    </article>
+  }
+
+  <section class="panel ledger" aria-label="Listado de registros">
+    @if (resource() !== 'tickets') {
+      <form class="filters" (ngSubmit)="filter()" ngNativeValidate>
+        <label class="field"
+          >Estado<select name="estado" [(ngModel)]="draft.estado">
+            <option value="">Todos los estados</option>
+            @for (state of modules[resource()].states; track state) {
+              <option [value]="state">{{ human(state) }}</option>
+            }
+          </select></label
+        >
+        @if (auth.isAdmin() && resource() !== 'facturas') {
+          <label class="field"
+            >ID de sucursal<input
+              type="number"
+              name="sucursal"
+              min="1"
+              [(ngModel)]="draft.sucursal"
+              placeholder="Todas"
+          /></label>
+        }
+        @if (resource() === 'pedidos') {
+          <label class="field"
+            >ID del cliente<input
+              type="number"
+              name="cliente"
+              min="1"
+              [(ngModel)]="draft.cliente"
+              placeholder="Todos"
+          /></label>
+        }
+        @if (resource() === 'ventas') {
+          <label class="field"
+            >ID del empleado<input
+              type="number"
+              name="empleado"
+              min="1"
+              [(ngModel)]="draft.empleado"
+              placeholder="Todos"
+          /></label>
+        }
+        @if (resource() === 'pagos' && methodsLoading()) {
+          <dg-skeleton shape="filter" />
+        } @else if (resource() === 'pagos') {
+          <label class="field"
+            >Método<select name="metodo" [(ngModel)]="draft.metodo">
+              <option value="">Todos los métodos</option>
+              @for (m of methods(); track m.id) {
+                <option [value]="m.codigo">{{ m.nombre }}</option>
+              }
+            </select></label
+          >
+        }
+        @if (resource() === 'pagos' || resource() === 'ventas') {
+          <label class="field"
+            >Desde<input type="date" name="desde" [(ngModel)]="draft.desde" /></label
+          ><label class="field"
+            >Hasta<input type="date" name="hasta" [min]="draft.desde" [(ngModel)]="draft.hasta"
+          /></label>
+        }
+        <div class="actions">
+          <button class="btn btn-primary">Aplicar</button
+          ><button type="button" class="btn" (click)="clear()">Limpiar</button>
+        </div>
+      </form>
+    }
+    @if (methodsError() && resource() === 'pagos') {
+      <div class="alert-error" role="alert">
+        {{ methodsError() }} <button class="btn" (click)="loadMethods()">Consultar métodos</button>
+      </div>
+    }
+    @if (loading()) {
+      <dg-skeleton shape="table" />
+    } @else if (listError()) {
+      <div class="state">
+        <p role="alert" class="alert-error">{{ listError() }}</p>
+        <button class="btn" (click)="refresh()">Volver a consultar</button>
+      </div>
+    } @else if (!rows().length) {
+      <dg-empty
+        [title]="'Sin resultados en ' + modules[resource()].title.toLowerCase()"
+        description="Ajusta los filtros para consultar otros registros."
+        icon="orders"
+      >
+        <button class="btn" (click)="clear()">Ver listado inicial</button>
+      </dg-empty>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ modules[resource()].singular }}</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              @if (resource() !== 'facturas') {
+                <th>Importe (MXN)</th>
+              }
+              <th><span class="sr-only">Detalle</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr [class.is-selected]="selected()?.id === row.id">
+                <td>
+                  <strong>{{ nameOf(row, resource()) }}</strong><small>{{ subtitle(row) }}</small>
+                </td>
+                <td>
+                  {{
+                    dateLabel(row.fecha || row.fecha_pedido || row.created_at || row.fecha_emision)
+                  }}
+                </td>
+                <td>
+                  <span class="badge" [attr.data-state]="stateOf(row)">{{
+                    human(stateOf(row))
+                  }}</span>
+                </td>
+                @if (resource() !== 'facturas') {
+                  <td class="money">{{ amount(row.total || row.monto || row.venta?.total) }}</td>
+                }
+                <td>
+                  <a
+                    class="btn"
+                    [routerLink]="url(resource())"
+                    [queryParams]="{ id: row.id }"
+                    [attr.aria-label]="'Ver detalle de ' + nameOf(row, resource())"
+                    >Ver detalle</a
+                  >
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @if (!loading() && !listError() && (rows().length || offset())) {
+      <footer class="pager">
+        <span
+          >{{ rows().length ? offset() + 1 : 0 }}–{{ offset() + rows().length }}
+          @if (total() !== null) {
+            de {{ total() }}
+          }
+        </span>
+        <div class="actions">
+          <button class="btn" [disabled]="offset() === 0" (click)="page(-1)">Anterior</button
+          ><button class="btn" [disabled]="!more()" (click)="page(1)">Siguiente</button>
+        </div>
+      </footer>
+    }
+  </section>
+</section>
+@if (task(); as current) {
+  <commerce-action-dialog
+    [task]="current"
+    [resource]="resource()"
+    [row]="current.action === 'crear-pedido' ? null : selected()"
+    (saved)="saved($event)"
+    (dismissed)="task.set(null)"
+  />
+}

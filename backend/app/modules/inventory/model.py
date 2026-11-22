@@ -128,6 +128,9 @@ class InventoryMovement(Base):
         nullable=False,
     )
 
+    cantidad_anterior: Mapped[int | None] = mapped_column(Integer)
+    cantidad_nueva: Mapped[int | None] = mapped_column(Integer)
+
     motivo: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

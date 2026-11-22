@@ -1,0 +1,86 @@
+import { Component, computed, input } from '@angular/core';
+import {
+  LucideDynamicIcon,
+  type LucideIcon,
+  LucideArrowRight,
+  LucideCakeSlice,
+  LucideChartColumnIncreasing,
+  LucideChevronRight,
+  LucideCircleCheck,
+  LucideCircleX,
+  LucideClipboardList,
+  LucideContactRound,
+  LucideCreditCard,
+  LucideEye,
+  LucideEyeOff,
+  LucideFileText,
+  LucideInfo,
+  LucideLayoutDashboard,
+  LucideLogOut,
+  LucideMenu,
+  LucideMinus,
+  LucidePackage,
+  LucidePlus,
+  LucideReceiptText,
+  LucideSearch,
+  LucideShieldCheck,
+  LucideShoppingBag,
+  LucideShoppingCart,
+  LucideStore,
+  LucideTags,
+  LucideTrash,
+  LucideTriangleExclamationPoint,
+  LucideUserRound,
+  LucideUsersRound,
+  LucideX,
+} from '@lucide/angular';
+
+const glyphs: Record<string, LucideIcon> = {
+  dashboard: LucideLayoutDashboard,
+  chart: LucideChartColumnIncreasing,
+  orders: LucideClipboardList,
+  sales: LucideShoppingBag,
+  payment: LucideCreditCard,
+  ticket: LucideReceiptText,
+  invoice: LucideFileText,
+  cake: LucideCakeSlice,
+  tags: LucideTags,
+  stock: LucidePackage,
+  store: LucideStore,
+  staff: LucideContactRound,
+  user: LucideUserRound,
+  contacts: LucideUsersRound,
+  pos: LucideShoppingCart,
+  menu: LucideMenu,
+  close: LucideX,
+  logout: LucideLogOut,
+  arrow: LucideChevronRight,
+  next: LucideArrowRight,
+  eye: LucideEye,
+  success: LucideCircleCheck,
+  error: LucideCircleX,
+  info: LucideInfo,
+  warning: LucideTriangleExclamationPoint,
+  search: LucideSearch,
+  plus: LucidePlus,
+  minus: LucideMinus,
+  bag: LucideShoppingBag,
+  trash: LucideTrash,
+  shield: LucideShieldCheck,
+  'eye-off': LucideEyeOff,
+};
+
+@Component({
+  selector: 'dg-icon',
+  imports: [LucideDynamicIcon],
+  template:
+    '<svg [lucideIcon]="glyph()" [size]="size()" [strokeWidth]="1.7" aria-hidden="true" focusable="false"></svg>',
+  styles: [
+    ':host{display:inline-flex;align-items:center;justify-content:center;flex:none;vertical-align:middle}',
+  ],
+})
+export class NavIcon {
+  readonly name = input.required<string>();
+  readonly size = input(19);
+  readonly glyph = computed(() => glyphs[this.name()] ?? glyphs['info']);
+}

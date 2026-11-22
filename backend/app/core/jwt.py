@@ -51,10 +51,14 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> int:
+    return int(verified_claims(token)["sub"])
+
+
+def verified_claims(token: str) -> dict:
     """
     Verifica la firma, las fechas y el tipo de token.
 
-    Devuelve el identificador del usuario autenticado.
+    Devuelve las declaraciones firmadas, incluido el instante de emisión.
     """
 
     if not isinstance(token, str) or not token.strip():
@@ -81,10 +85,13 @@ def decode_access_token(token: str) -> int:
             leeway=0,
         )
 
-    except InvalidTokenError as exc:
+    except (InvalidTokenError, TypeError, ValueError, OverflowError) as exc:
         raise TokenValidationError(
             "Token de acceso inválido o expirado"
         ) from exc
+
+    if type(payload["iat"]) is not int:
+        raise TokenValidationError("Instante de emisión inválido")
 
     if payload.get("type") != "access":
         raise TokenValidationError("Tipo de token no permitido")
@@ -104,4 +111,4 @@ def decode_access_token(token: str) -> int:
     if user_id <= 0 or user_id > 9223372036854775807:
         raise TokenValidationError("Identificador de usuario inválido")
 
-    return user_id
+    return payload

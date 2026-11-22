@@ -1,0 +1,121 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <a routerLink="/admin/products">← Productos</a>
+      <h1>Nuevo producto</h1>
+    </div>
+  </header>
+  @if (created(); as r) {
+    <section class="panel">
+      <h2>{{ r.producto.nombre }}</h2>
+      <p>
+        SKU asignado <strong>{{ r.producto.sku }}</strong>
+      </p>
+      <p>Inventario registrado en {{ r.inventarios.length }} sucursales.</p>
+      <a class="btn" routerLink="/admin/products">Volver al catálogo</a>
+    </section>
+  } @else if (options.loading()) {
+    <dg-skeleton shape="detail" />
+  } @else if (options.error()) {
+    <p role="alert">
+      {{ options.error() }} <button class="btn" (click)="load()">Reintentar</button>
+    </p>
+  } @else if (options.data(); as lists) {
+    <form class="page" [formGroup]="form" (ngSubmit)="save()">
+      <fieldset class="panel" [disabled]="write.busy()">
+        <legend>Información del producto</legend>
+        <div class="form-grid">
+          <label class="field"
+            >Nombre *<input
+              formControlName="nombre"
+              required
+              minlength="2"
+              maxlength="150" /><dg-field-issue [control]="form.controls.nombre" /></label
+          ><label class="field"
+            >Categoría *<select formControlName="categoria_id" required>
+              <option [ngValue]="0" disabled>Seleccionar categoría</option>
+              @for (c of lists[0]; track c.id) {
+                <option [ngValue]="c.id">{{ c.nombre }}</option>
+              }</select
+            ><dg-field-issue [control]="form.controls.categoria_id" /></label
+          ><label class="field"
+            >Precio (MXN) *<input
+              formControlName="precio"
+              required
+              inputmode="decimal"
+              pattern="[0-9]{1,10}(\.[0-9]{1,2})?"
+              title="Importe con hasta dos decimales" /><dg-field-issue
+              [control]="form.controls.precio"
+          /></label>
+        </div>
+        <label class="field"
+          >Descripción<textarea formControlName="descripcion" maxlength="4000"></textarea
+          ><dg-field-issue [control]="form.controls.descripcion" /></label
+        ><dg-photo
+          [disabled]="write.busy()"
+          (changed)="file = $event"
+          (invalid)="invalidPhoto = $event"
+        />
+      </fieldset>
+      <fieldset class="panel" formArrayName="inventarios" [disabled]="write.busy()">
+        <legend>Inventario inicial</legend>
+        @for (g of form.controls.inventarios.controls; track g; let i = $index) {
+          <div class="stock-row form-grid" [formGroupName]="i">
+            <label class="field"
+              >Sucursal *<select formControlName="sucursal_id" required>
+                <option [ngValue]="0" disabled>Seleccionar sucursal</option>
+                @for (b of lists[1]; track b.id) {
+                  <option [ngValue]="b.id">{{ b.nombre }}</option>
+                }</select
+              ><dg-field-issue [control]="g.controls.sucursal_id" /></label
+            ><label class="field"
+              >Existencias iniciales *<input
+                formControlName="existencias_iniciales"
+                type="number"
+                required
+                min="0"
+                max="2147483647"
+                step="1" /><dg-field-issue [control]="g.controls.existencias_iniciales" /></label
+            ><label class="field"
+              >Stock mínimo *<input
+                formControlName="stock_minimo"
+                type="number"
+                required
+                min="0"
+                step="1"
+                max="2147483647" /><dg-field-issue [control]="g.controls.stock_minimo"
+            /></label>
+            @if (form.controls.inventarios.length > 1) {
+              <button type="button" class="btn" (click)="form.controls.inventarios.removeAt(i)">
+                Quitar sucursal
+              </button>
+            }
+          </div>
+        }
+        <button
+          type="button"
+          class="btn"
+          [disabled]="
+            form.controls.inventarios.length >= lists[1].length ||
+            form.controls.inventarios.length >= 1000
+          "
+          (click)="form.controls.inventarios.push(stock())"
+        >
+          Agregar sucursal
+        </button>
+      </fieldset>
+      @if (write.error()) {
+        <p class="alert-error" role="alert">{{ write.error() }}</p>
+      }
+      @if (write.busy() && file) {
+        <label>Subiendo fotografía <progress max="100" [attr.value]="progress()"></progress></label>
+      }
+      <div class="actions">
+        <a class="btn" routerLink="/admin/products">Volver</a
+        ><button class="btn btn-primary" [disabled]="write.busy() || invalidPhoto">
+          {{ write.busy() ? 'Guardando…' : 'Guardar producto' }}
+        </button>
+      </div>
+    </form>
+  }
+</section>

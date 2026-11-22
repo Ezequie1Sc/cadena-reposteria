@@ -1,0 +1,69 @@
+<section class="inv-panel" aria-labelledby="movement-title">
+  <div class="inv-section-heading"><h2 id="movement-title">Historial de movimientos</h2></div>
+  @if (loading()) {
+    <dg-skeleton shape="table" />
+  } @else if (error()) {
+    <div class="inv-message bad" role="alert">
+      {{ error() }} <button class="inv-button" (click)="retry.set(retry() + 1)">Reintentar</button>
+    </div>
+  } @else if (visible().length) {
+    <div class="inv-table" tabindex="0" aria-label="Historial de movimientos">
+      <table>
+        <thead>
+          <tr>
+            <th>Movimiento</th>
+            <th>Fecha</th>
+            <th>Unidades</th>
+            <th>Saldo anterior</th>
+            <th>Saldo posterior</th>
+            <th>Motivo</th>
+            <th>Referencia</th>
+            <th>Responsable</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of visible(); track m.id) {
+            <tr>
+              <td>
+                <strong>{{ label(m) }}</strong>
+              </td>
+              <td>{{ m.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ m.cantidad }}</td>
+              <td>{{ m.cantidad_anterior ?? '—' }}</td>
+              <td>{{ m.cantidad_nueva ?? '—' }}</td>
+              <td>{{ m.motivo || 'Sin motivo registrado' }}</td>
+              <td>
+                {{ m.referencia_tipo || '—' }}
+                @if (m.referencia_id) {
+                  #{{ m.referencia_id }}
+                }
+              </td>
+              <td>{{ m.usuario_id ? 'Usuario #' + m.usuario_id : '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <dg-empty
+      title="Sin movimientos en esta página"
+      description="Las entradas, ajustes y reservas aparecerán en el historial."
+      icon="stock"
+    />
+  }
+  @if (!loading() && !error() && (page() || rows().length > pageSize)) {
+    <nav class="inv-pager" aria-label="Páginas de movimientos">
+      <button class="inv-button" [disabled]="page() === 0" (click)="page.set(page() - 1)">
+        Anterior
+      </button>
+      <span>Página {{ page() + 1 }}</span
+      ><button
+        class="inv-button"
+        [disabled]="rows().length <= pageSize"
+        (click)="page.set(page() + 1)"
+      >
+        Siguiente
+      </button>
+    </nav>
+  }
+</section>

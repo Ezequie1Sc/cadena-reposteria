@@ -2,6 +2,7 @@
 
 from typing import Annotated, Literal
 
+from app.core.roles import RoleID
 from fastapi import APIRouter, Depends, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
@@ -195,7 +196,7 @@ def session_profile(db: DbSession, actor: CurrentUser):
                 Customer.usuario_id == actor.id, Customer.activo.is_(True)
             )
         )
-        if actor.rol_id == 3
+        if actor.rol_id == RoleID.CLIENTE
         else None
     )
     branch_id = (
@@ -208,7 +209,7 @@ def session_profile(db: DbSession, actor: CurrentUser):
                 Branch.activo.is_(True),
             )
         )
-        if actor.rol_id == 2
+        if actor.rol_id == RoleID.EMPLEADO
         else None
     )
     return SessionProfile(

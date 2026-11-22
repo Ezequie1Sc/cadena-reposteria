@@ -1,0 +1,152 @@
+:host {
+  display: block;
+}
+.listing {
+  padding: 0;
+  overflow: hidden;
+}
+.toolbar,
+.pagination {
+  display: flex;
+  gap: 1rem;
+  align-items: end;
+  padding: 1.25rem;
+  flex-wrap: wrap;
+}
+.toolbar .field:first-child {
+  min-width: min(260px, 100%);
+}
+.record-count {
+  margin-left: auto;
+  align-self: center;
+  color: #6f6259;
+  font-size: 0.82rem;
+}
+.record-link,
+.link {
+  background: none;
+  border: 0;
+  color: #513b30;
+  cursor: pointer;
+}
+.record-link {
+  padding: 0.35rem 0;
+  font-weight: 650;
+  text-align: left;
+}
+.link {
+  min-height: 40px;
+  padding: 0 0.35rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 0.82rem;
+}
+.record-id {
+  display: block;
+  color: #766b64;
+}
+.row-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+.off {
+  background: #f0ebe6;
+  color: #665b53;
+}
+.pagination {
+  border-top: 1px solid #e8e2da;
+  justify-content: end;
+  align-items: center;
+}
+.sr {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+dialog {
+  color: #342d29;
+  background: #fffaf6;
+  border: 1px solid #e6dbd1;
+  border-radius: 20px;
+  padding: clamp(18px, 3vw, 32px);
+  width: min(630px, calc(100% - 24px));
+  max-height: 88dvh;
+  box-shadow: 0 28px 100px #33221835;
+  margin: auto;
+}
+dialog::backdrop {
+  background: #30251e69;
+}
+.dialog-head,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.dialog-head {
+  margin-bottom: 18px;
+}
+.dialog-head h2 {
+  margin: 4px 0;
+  font-size: 1.5rem;
+}
+.dialog-head button {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.details > div {
+  border-bottom: 1px solid #e8e2da;
+  padding-bottom: 0.65rem;
+  min-width: 0;
+}
+.details dt {
+  font-size: 0.78rem;
+  color: #73665d;
+}
+.details dd {
+  margin: 0.35rem 0 0;
+  overflow-wrap: anywhere;
+}
+.wide {
+  grid-column: 1/-1;
+}
+footer {
+  justify-content: end;
+  border-top: 1px solid #e8e2da;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+}
+.validation {
+  color: #8e3229;
+}
+.state {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+.state h2 {
+  font-size: 1.15rem;
+}
+.table-wrap td {
+  max-width: 28rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .toolbar,
+  .record-count {
+    width: 100%;
+  }
+  .toolbar .field {
+    flex: 1;
+  }
+  .details {
+    grid-template-columns: 1fr;
+  }
+}

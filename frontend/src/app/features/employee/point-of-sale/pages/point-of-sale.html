@@ -1,0 +1,339 @@
+<div class="page pos-page">
+  <div class="page-header">
+    <div>
+      <p class="eyebrow">Mostrador</p>
+      <h1>Punto de venta</h1>
+    </div>
+    @if (pos.branchId) {
+      <span class="branch"><dg-icon name="store" [size]="18" />Sucursal {{ pos.branchId }}</span>
+    }
+  </div>
+  @if (pos.error()) {
+    <div class="alert-error pos-error" role="alert">
+      <span>{{ pos.error() }}</span>
+      @if (pos.state().saleId && !pos.sale()) {
+        <button class="btn" [disabled]="pos.busy()" (click)="retryRefresh()">
+          Recuperar venta
+        </button>
+      }
+    </div>
+  }
+  @if (pos.loading() && !pos.ready()) {
+    <dg-skeleton shape="cards" />
+  } @else if (pos.ready()) {
+    <div class="register">
+      <div class="catalog">
+        @if (pos.catalogBusy()) {
+          <dg-skeleton shape="cards" />
+        } @else if (pos.catalogError()) {
+          <div class="panel state" role="alert">
+            <strong>Catálogo no disponible</strong>
+            <p>{{ pos.catalogError() }}</p>
+            <button class="btn" [disabled]="pos.busy()" (click)="retryCatalog()">Reintentar</button>
+          </div>
+        } @else {
+          <app-pos-catalog
+            [products]="pos.products()"
+            [categories]="pos.categories()"
+            [stock]="pos.stock()"
+            [locked]="pos.locked() || pos.busy()"
+            (add)="pos.changeQuantity($event.id, 1)"
+          />
+        }
+      </div>
+      <section
+        class="receipt panel"
+        tabindex="-1"
+        id="pos-cart"
+        aria-label="Carrito y cobro"
+        [attr.aria-busy]="pos.busy()"
+      >
+        <header class="receipt-title">
+          <div>
+            <p class="eyebrow">
+              {{ pos.state().saleId ? 'Venta #' + pos.state().saleId : 'Venta en mostrador' }}
+            </p>
+            <h2>{{ pos.state().saleId ? 'Cobro' : 'Carrito' }}</h2>
+          </div>
+          @if (pos.state().saleId) {
+            <button class="link-btn" [disabled]="pos.busy()" (click)="retryRefresh()">
+              Actualizar
+            </button>
+          } @else if (pos.cart().length && !pos.locked()) {
+            <button class="link-btn" [disabled]="pos.busy()" (click)="pos.cart.set([])">
+              Vaciar
+            </button>
+          }
+        </header>
+        @if (pos.receiptLoading() && !pos.sale()) {
+          <dg-skeleton shape="detail" />
+        } @else if (!pos.state().saleId) {
+          @if (!pos.cart().length) {
+            <div class="empty-bag">
+              <dg-icon name="bag" [size]="40" /> <strong>Tu carrito está vacío</strong>
+              <p>Selecciona un producto del catálogo para comenzar.</p>
+            </div>
+          } @else {
+            <ul class="lines">
+              @for (line of articles(); track line.producto_id) {
+                <li>
+                  <div>
+                    <strong>{{ line.product?.nombre || 'Producto #' + line.producto_id }}</strong>
+                    <small>{{
+                      line.product
+                        ? pos.price(line.product!.precio) + ' por unidad'
+                        : 'Producto fuera de catálogo'
+                    }}</small>
+                  </div>
+                  <div class="line-actions">
+                    <div class="stepper">
+                      <button
+                        [disabled]="pos.locked() || pos.busy()"
+                        (click)="pos.changeQuantity(line.producto_id, -1)"
+                        [attr.aria-label]="
+                          'Restar una unidad de ' + (line.product?.nombre || line.producto_id)
+                        "
+                      >
+                        −
+                      </button>
+                      <span>{{ line.cantidad }}</span>
+                      <button
+                        [disabled]="pos.locked() || pos.busy()"
+                        (click)="pos.changeQuantity(line.producto_id, 1)"
+                        [attr.aria-label]="
+                          'Agregar una unidad de ' + (line.product?.nombre || line.producto_id)
+                        "
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      class="remove"
+                      [disabled]="pos.locked() || pos.busy()"
+                      [attr.aria-label]="'Quitar ' + (line.product?.nombre || line.producto_id)"
+                      (click)="pos.changeQuantity(line.producto_id, -line.cantidad)"
+                    >
+                      <dg-icon name="trash" [size]="15" />
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+            @if (!pos.locked()) {
+              <label class="field"
+                ><span>ID de cliente <small>(opcional)</small></span
+                ><input
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="Venta de mostrador"
+                  [disabled]="pos.busy()"
+                  [value]="customer()"
+                  (input)="customer.set($any($event.target).value)"
+              /></label>
+            }
+          }
+          <div class="totals">
+            <div>
+              <span>Subtotal estimado</span><span>{{ pos.subtotal() }}</span>
+            </div>
+            <div class="grand">
+              <strong>Total estimado</strong><strong>{{ pos.subtotal() }}</strong>
+            </div>
+          </div>
+          @if (pos.state().saleIntent) {
+            <p class="notice" role="status">
+              Hay una solicitud pendiente de respuesta. Recupera la venta con su clave original.
+            </p>
+          }
+          <button
+            class="btn btn-primary wide"
+            [disabled]="
+              pos.busy() || !pos.cart().length || (!!pos.catalogError() && !pos.state().saleIntent)
+            "
+            (click)="submitSale()"
+          >
+            {{
+              pos.busy()
+                ? 'Procesando…'
+                : pos.state().saleIntent
+                  ? 'Recuperar venta'
+                  : 'Registrar venta'
+            }}
+          </button>
+        } @else if (pos.sale(); as sale) {
+          <div class="sale-status">
+            <b>{{ sale.numero_venta }}</b><span class="badge">{{ sale.estado }}</span>
+          </div>
+          <details class="summary">
+            <summary>Detalle de artículos · {{ sale.detalles.length }}</summary>
+            <ul class="details">
+              @for (line of sale.detalles; track line.producto_id) {
+                <li>
+                  <span
+                    >{{ line.cantidad }} ×
+                    {{ line.producto_nombre || 'Producto #' + line.producto_id }}</span
+                  ><strong>{{ pos.price(line.subtotal) }}</strong>
+                </li>
+              }
+            </ul>
+          </details>
+          <div class="totals">
+            <div>
+              <span>Subtotal</span><span>{{ pos.price(sale.subtotal) }}</span>
+            </div>
+            <div class="grand">
+              <strong>Total de la venta</strong><strong>{{ pos.price(sale.total) }}</strong>
+            </div>
+          </div>
+          @if (pos.payment(); as payment) {
+            <div class="sale-status">
+              <span>Pago #{{ payment.id }}</span
+              ><b class="badge">{{ payment.estado }}</b>
+            </div>
+            @if (
+              payment.estado === 'PENDIENTE' &&
+              payment.proveedor === 'INTERNO' &&
+              sale.estado === 'PENDIENTE'
+            ) {
+              <label class="field"
+                ><span>Motivo de la confirmación</span
+                ><textarea
+                  rows="2"
+                  maxlength="500"
+                  [disabled]="pos.busy()"
+                  [value]="reason()"
+                  (input)="reason.set($any($event.target).value)"
+                  placeholder="Describe cómo verificaste el importe"
+                ></textarea>
+              </label>
+              <label class="check"
+                ><input
+                  type="checkbox"
+                  [checked]="checked()"
+                  [disabled]="pos.busy()"
+                  (change)="checked.set($any($event.target).checked)"
+                />{{ verificationCopy() }}</label
+              >
+              <button
+                class="btn btn-primary wide"
+                [disabled]="pos.busy() || !checked() || reason().trim().length < 3"
+                (click)="approve()"
+              >
+                Verificar y confirmar
+              </button>
+            } @else if (
+              (payment.estado === 'RECHAZADO' ||
+                payment.estado === 'CANCELADO' ||
+                payment.estado === 'VENCIDO') &&
+              sale.estado === 'PENDIENTE'
+            ) {
+              <button class="btn wide" [disabled]="pos.busy()" (click)="resetPayment()">
+                Registrar otro medio de pago
+              </button>
+            }
+          } @else if (sale.estado === 'PENDIENTE' || pos.state().paymentIntent) {
+            @if (pos.state().paymentIntent) {
+              <p class="notice">
+                El resultado del pago está pendiente de recuperación. Se reutilizará la solicitud
+                original.
+              </p>
+              <button class="btn btn-primary wide" [disabled]="pos.busy()" (click)="pay()">
+                Recuperar pago
+              </button>
+            } @else if (pos.methodsLoading()) {
+              <dg-skeleton shape="filter" />
+            } @else if (pos.methodError() || !pos.methods().length) {
+              <p class="notice">
+                {{ pos.methodError() || 'La sucursal no tiene métodos de pago disponibles.' }}
+              </p>
+              <button class="btn wide" [disabled]="pos.busy()" (click)="retryMethods()">
+                Consultar métodos
+              </button>
+            } @else {
+              <label class="field"
+                ><span>Método de pago</span
+                ><select
+                  [value]="method()"
+                  [disabled]="pos.busy()"
+                  (change)="method.set($any($event.target).value); reference.set('')"
+                >
+                  <option value="">Seleccionar método</option>
+                  @for (m of pos.methods(); track m.id) {
+                    <option [value]="m.codigo">{{ m.nombre }}</option>
+                  }
+                </select></label
+              >
+              @if (method() && method() !== 'EFECTIVO') {
+                <label class="field"
+                  ><span>Referencia de la operación</span
+                  ><input
+                    [disabled]="pos.busy()"
+                    [value]="reference()"
+                    (input)="reference.set($any($event.target).value)"
+                    maxlength="255"
+                    autocomplete="off"
+                    placeholder="Folio del comprobante"
+                /></label>
+              }
+              <button
+                class="btn btn-primary wide"
+                [disabled]="
+                  pos.busy() ||
+                  !method() ||
+                  (method() !== 'EFECTIVO' && reference().trim().length < 3)
+                "
+                (click)="pay()"
+              >
+                Registrar pago · {{ pos.price(sale.total) }}
+              </button>
+            }
+          }
+          @if (pos.ticket(); as ticket) {
+            <div class="ticket">
+              <span class="eyebrow">Ticket comercial</span
+              ><strong>{{ ticket.numero_ticket }}</strong
+              ><span>{{ ticket.pagado ? 'Pagado' : 'Sin pago confirmado' }}</span
+              ><button class="btn wide" [disabled]="pos.busy()" (click)="print()">
+                Imprimir ticket
+              </button>
+            </div>
+          } @else if (!pos.state().paymentIntent) {
+            <button class="btn wide" [disabled]="pos.busy()" (click)="makeTicket()">
+              {{
+                sale.estado === 'CONFIRMADA' ? 'Generar ticket' : 'Generar ticket con estado actual'
+              }}
+            </button>
+          }
+          @if (!pos.state().paymentIntent) {
+            <button class="link-btn wide" [disabled]="pos.busy()" (click)="finish()">
+              {{
+                sale.estado === 'PENDIENTE' ? 'Dejar pendiente y abrir otro carrito' : 'Nueva venta'
+              }}
+            </button>
+          }
+        } @else {
+          <p class="notice">
+            La venta #{{ pos.state().saleId }} está guardada. Consulta su estado para continuar el
+            cobro.
+          </p>
+          <button class="btn wide" [disabled]="pos.busy()" (click)="retryRefresh()">
+            Consultar venta
+          </button>
+        }
+        @if (pos.busy()) {
+          <span class="muted" role="status">Procesando…</span>
+        }
+      </section>
+    </div>
+    <button class="mobile-cart" [disabled]="pos.busy()" (click)="viewCart()">
+      {{
+        pos.state().saleId
+          ? 'Ver cobro #' + pos.state().saleId
+          : 'Ver carrito · ' + pos.quantities()
+      }}
+      <strong>{{ pos.sale() ? pos.price(pos.sale()!.total) : pos.subtotal() }}</strong>
+    </button>
+  } @else {
+    <a class="btn" routerLink="/employee/profile">Ver mi perfil</a>
+  }
+</div>

@@ -1,0 +1,179 @@
+<section class="page overview">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Administración · {{ dateText }}</p>
+      <h1>Resumen del negocio</h1>
+      <p class="muted">Hola, {{ auth.user()?.nombre }}. Consulta la actividad de tus sucursales.</p>
+    </div>
+    @if (branchBusy()) {
+      <dg-skeleton shape="filter" />
+    } @else if (branchError()) {
+      <button class="btn" (click)="retry.set(retry() + 1)">Recargar sucursales</button>
+    } @else {
+      <label class="field"
+        >Sucursal<select [ngModel]="branch()" (ngModelChange)="branch.set($event)">
+          <option value="">Todas las sucursales</option>
+          @for (b of branches(); track b.id) {
+            <option [value]="b.id">{{ b.nombre }}</option>
+          }
+        </select></label
+      >
+    }
+  </header>
+  @if (loading()) {
+    <dg-skeleton shape="dashboard" />
+  } @else if (error()) {
+    <div class="panel state" role="alert">
+      <h2>Indicadores no disponibles</h2>
+      <p>{{ error() }}</p>
+      <button class="btn" (click)="retry.set(retry() + 1)">Reintentar</button>
+    </div>
+  } @else if (summary(); as s) {
+    <div class="metrics">
+      <article class="metric featured">
+        <span>Ingresos del mes</span><strong>{{ money(s.ingresos_mes) }}</strong
+        ><small>Pagos aprobados · MXN</small>
+      </article>
+      <article class="metric">
+        <span>Ventas de hoy</span><strong>{{ s.ventas_dia }}</strong
+        ><small>Ventas confirmadas</small>
+      </article>
+      <article class="metric">
+        <span>Pedidos pendientes</span><strong>{{ s.pedidos_pendientes }}</strong
+        ><a routerLink="/admin/orders">Consultar pedidos</a>
+      </article>
+      <article class="metric">
+        <span>Alertas de inventario</span><strong>{{ s.alertas_inventario }}</strong
+        ><a routerLink="/admin/inventory">Consultar existencias</a>
+      </article>
+    </div>
+    <div class="charts">
+      <article class="panel chart">
+        <div class="chart-head">
+          <div>
+            <p class="eyebrow">Ventas confirmadas</p>
+            <h2>Evolución de ventas</h2>
+          </div>
+          <label class="field"
+            ><span class="sr">Periodo de la gráfica</span
+            ><select [ngModel]="days()" (ngModelChange)="days.set($event)">
+              <option [ngValue]="7">Últimos 7 días</option>
+              <option [ngValue]="30">Últimos 30 días</option>
+              <option [ngValue]="90">Últimos 90 días</option>
+            </select></label
+          >
+        </div>
+        @if (chartBusy()) {
+          <dg-skeleton shape="chart" />
+        } @else if (chartError()) {
+          <p role="alert">
+            {{ chartError() }}
+            <button class="btn" (click)="chartRetry.set(chartRetry() + 1)">Reintentar</button>
+          </p>
+        } @else if (!sales().length) {
+          <div class="empty">
+            <dg-icon name="chart" [size]="24" />
+            <h3>Sin ventas en este periodo</h3>
+            <p>Las ventas confirmadas aparecerán en la gráfica.</p>
+          </div>
+        } @else {
+          <div
+            class="plot"
+            role="img"
+            [attr.aria-label]="
+              'Ventas diarias entre ' +
+              firstDay() +
+              ' y ' +
+              lastDay() +
+              '. Consulta los datos en la tabla inferior.'
+            "
+          >
+            <span>{{ money(max()) }}</span>
+            <svg viewBox="0 0 600 145" preserveAspectRatio="none" aria-hidden="true">
+              <path
+                d="M0 10H600 M0 52H600 M0 94H600 M0 136H600"
+                fill="none"
+                stroke="#e8e2da"
+                stroke-dasharray="3 4"
+              />
+              <polygon [attr.points]="'8,136 ' + points() + ' 592,136'" fill="#d8bda451" />
+              <polyline
+                [attr.points]="points()"
+                fill="none"
+                stroke="#866044"
+                stroke-width="2.8"
+                stroke-linejoin="round"
+                vector-effect="non-scaling-stroke"
+              />
+            </svg>
+            <div class="axis">
+              <span>{{ firstDay() }}</span><span>{{ lastDay() }}</span>
+            </div>
+          </div>
+          <details>
+            <summary>Ver importes diarios</summary>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Ventas</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (point of series(); track point.date) {
+                    <tr>
+                      <td>{{ point.date }}</td>
+                      <td>{{ point.ventas }}</td>
+                      <td>{{ money(point.total) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </details>
+        }
+      </article>
+      <article class="panel ranking">
+        <p class="eyebrow">Este mes</p>
+        <h2>Productos más vendidos</h2>
+        @if (!s.productos_mas_vendidos.length) {
+          <div class="empty">
+            <dg-icon name="chart" [size]="24" />
+            <h3>Aún no hay productos vendidos</h3>
+            <p>El ranking se calcula con ventas confirmadas.</p>
+          </div>
+        } @else {
+          <ol>
+            @for (p of s.productos_mas_vendidos; track p.producto_id; let i = $index) {
+              <li>
+                <span class="rank">{{ i + 1 }}</span><span
+                  ><b>{{ productNames()[p.producto_id] || 'Producto #' + p.producto_id }}</b
+                  ><small>{{ p.cantidad }} unidades</small></span
+                ><strong>{{ money(p.total) }}</strong>
+              </li>
+            }
+          </ol>
+        }
+      </article>
+    </div>
+    <section class="panel operations">
+      <h2>Catálogo y cobertura</h2>
+      <dl>
+        <div>
+          <dt>Productos activos en la cadena</dt>
+          <dd>{{ s.productos_activos }}</dd>
+        </div>
+        <div>
+          <dt>Clientes registrados en la cadena</dt>
+          <dd>{{ s.clientes_registrados }}</dd>
+        </div>
+        <div>
+          <dt>Sucursales activas en la consulta</dt>
+          <dd>{{ s.sucursales_activas }}</dd>
+        </div>
+      </dl>
+    </section>
+  }
+</section>

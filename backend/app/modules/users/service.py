@@ -1,10 +1,11 @@
 """Lógica de negocio para la administración de usuarios."""
 
 from fastapi import HTTPException
-from sqlalchemy import Boolean, column, func, select, table
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.roles import RoleID, catalog_role_active
 from app.core.security import hash_password
 from app.modules.users.model import User
 from app.modules.users.repository import user_repository
@@ -16,7 +17,7 @@ from app.modules.users.schemas import (
 from app.shared.models.role_reference import roles_reference
 
 
-ADMIN_ROLE_ID = 1
+ADMIN_ROLE_ID = RoleID.ADMINISTRADOR
 
 
 class UserService:
@@ -51,31 +52,14 @@ class UserService:
     def _validate_role(db: Session, rol_id: int) -> None:
         """Comprueba que el rol exista y esté activo."""
 
-        query = select(
-            roles_reference.c.id
-        ).where(
-            roles_reference.c.id == rol_id
-        )
-
-        if db.scalar(query) is None:
+        active = catalog_role_active(db, rol_id, lock=True)
+        if active is None:
             raise HTTPException(
                 status_code=422,
                 detail="El rol indicado no existe",
             )
 
-        roles_table = table(
-            "roles",
-            column("id"),
-            column("activo", Boolean),
-        )
-
-        active_query = select(
-            roles_table.c.activo
-        ).where(
-            roles_table.c.id == rol_id
-        )
-
-        if db.scalar(active_query) is not True:
+        if active is not True:
             raise HTTPException(
                 status_code=422,
                 detail="No se puede asignar un rol inactivo",
@@ -140,19 +124,7 @@ class UserService:
                 detail="El usuario no tiene permisos administrativos",
             )
 
-        roles_table = table(
-            "roles",
-            column("id"),
-            column("activo", Boolean),
-        )
-
-        role_active = db.scalar(
-            select(roles_table.c.activo).where(
-                roles_table.c.id == ADMIN_ROLE_ID
-            )
-        )
-
-        if role_active is not True:
+        if catalog_role_active(db, ADMIN_ROLE_ID) is not True:
             raise HTTPException(
                 status_code=403,
                 detail="El rol Administrador está inactivo",

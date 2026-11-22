@@ -128,8 +128,10 @@ class InventoryRepository:
         referencia_tipo: str | None = None,
         referencia_id: int | None = None,
         usuario_id: int | None = None,
+        cantidad_anterior: int | None = None,
+        cantidad_nueva: int | None = None,
     ) -> InventoryMovement:
-        movement = InventoryMovement(
+        movement = InventoryMovement(cantidad_anterior=cantidad_anterior, cantidad_nueva=cantidad_nueva,
             inventario_id=inventario_id,
             tipo=tipo,
             cantidad=cantidad,

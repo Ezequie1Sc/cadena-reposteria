@@ -1,0 +1,77 @@
+<section aria-label="Catálogo de productos">
+  <div class="catalog-tools">
+    <label class="search"
+      ><dg-icon name="search" [size]="18" />
+      <input
+        type="search"
+        placeholder="Buscar por nombre o SKU"
+        aria-label="Buscar por nombre o SKU"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+    <nav class="filters" aria-label="Categorías">
+      <button
+        [class.selected]="!filter()"
+        [attr.aria-pressed]="!filter()"
+        (click)="filter.set(null)"
+      >
+        Todos
+      </button>
+      @for (category of categories(); track category.id) {
+        <button
+          [class.selected]="filter() === category.id"
+          [attr.aria-pressed]="filter() === category.id"
+          (click)="filter.set(category.id)"
+        >
+          {{ category.nombre }}
+        </button>
+      }
+    </nav>
+  </div>
+  <div class="grid">
+    @for (p of shown(); track p.id) {
+      <button
+        class="product"
+        [disabled]="locked() || !(stock().get(p.id) || 0)"
+        [attr.aria-label]="'Agregar ' + p.nombre + ', ' + price(p.precio)"
+        (click)="add.emit(p)"
+      >
+        <span class="picture">
+          @if (p.imagen_url && !broken().has(p.imagen_url)) {
+            <img
+              [src]="p.imagen_url"
+              alt=""
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              (error)="imageFailed(p.imagen_url)"
+            />
+          } @else {
+            <dg-icon name="cake" [size]="40" />
+          }
+        </span>
+        <span class="product-info"
+          ><small>{{ p.sku }}</small
+          ><strong>{{ p.nombre }}</strong>
+          <span class="availability">{{ stock().get(p.id) || 0 }} disponibles</span>
+          <span class="price"
+            >{{ price(p.precio)
+            }}<span class="plus" aria-hidden="true"><dg-icon name="plus" [size]="13" /></span
+          ></span>
+        </span>
+      </button>
+    } @empty {
+      <div class="nothing">
+        <dg-icon name="cake" [size]="28" />
+        <strong>{{ products().length ? 'Sin coincidencias' : 'Catálogo vacío' }}</strong>
+        <p>
+          {{
+            products().length
+              ? 'Prueba otro nombre, SKU o categoría.'
+              : 'Los productos activos aparecerán aquí.'
+          }}
+        </p>
+      </div>
+    }
+  </div>
+</section>

@@ -1,0 +1,72 @@
+<main class="login-shell">
+  <section class="login-main" aria-labelledby="welcome">
+    <div class="wordmark">
+      <img src="brand.svg" alt="" width="42" height="42" /><span>DulceGestión</span>
+    </div>
+    <div class="login-content">
+      <div class="portal-label">Portal de la repostería</div>
+      <h1 id="welcome">Iniciar sesión</h1>
+      <p class="intro">Accede con tu cuenta de trabajo.</p>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <label for="email">Correo electrónico</label>
+        <input
+          id="email"
+          formControlName="email"
+          type="email"
+          autocomplete="username"
+          placeholder="nombre@empresa.com"
+          maxlength="254"
+          [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid"
+          aria-describedby="email-help"
+        />
+        <span id="email-help" class="validation">
+          @if (form.controls.email.touched && form.controls.email.invalid) {
+            Escribe un correo electrónico válido.
+          }
+        </span>
+        <label for="password">Contraseña</label>
+        <div class="password-wrap">
+          <input
+            id="password"
+            formControlName="password"
+            [type]="visible() ? 'text' : 'password'"
+            autocomplete="current-password"
+            maxlength="128"
+            [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid"
+            aria-describedby="password-help"
+          />
+          <button
+            type="button"
+            class="eye"
+            (click)="visible.set(!visible())"
+            [attr.aria-label]="visible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            [attr.aria-pressed]="visible()"
+          >
+            <dg-icon [name]="visible() ? 'eye-off' : 'eye'" />
+          </button>
+        </div>
+        <span id="password-help" class="validation">
+          @if (form.controls.password.touched && form.controls.password.invalid) {
+            Escribe tu contraseña.
+          }
+        </span>
+        @if (error() || auth.notice()) {
+          <div class="login-error" role="alert">{{ error() || auth.notice() }}</div>
+        }
+        <button type="submit" class="enter" [disabled]="busy() || retrySeconds() > 0">
+          {{
+            busy()
+              ? 'Verificando acceso…'
+              : retrySeconds()
+                ? 'Reintentar en ' + retrySeconds() + ' s'
+                : 'Iniciar sesión'
+          }}<dg-icon name="next" />
+        </button>
+      </form>
+    </div>
+    <p class="login-footer">Sistema de gestión de repostería</p>
+  </section>
+  <aside class="login-photo" aria-label="Fotografía de repostería artesanal">
+    <img src="images/atelier.webp" alt="" fetchpriority="high" />
+  </aside>
+</main>

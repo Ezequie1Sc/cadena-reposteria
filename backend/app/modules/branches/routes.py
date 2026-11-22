@@ -1,3 +1,4 @@
+from app.core.roles import RoleID
 from app.core.auth import CurrentUser
 from app.core.permissions import AdminUser
 
@@ -54,7 +55,7 @@ def get_branches(
         description="Mostrar únicamente sucursales activas",
     ),
 ):
-    if actor.rol_id != 1 and not solo_activos:
+    if actor.rol_id != RoleID.ADMINISTRADOR and not solo_activos:
         raise HTTPException(status_code=403, detail="Solo administración puede consultar inactivos")
 
     try:
@@ -96,7 +97,7 @@ def get_branch(
             branch_id=branch_id,
         )
 
-        if branch is None or (actor.rol_id != 1 and not branch.activo):
+        if branch is None or (actor.rol_id != RoleID.ADMINISTRADOR and not branch.activo):
             raise HTTPException(
                 status_code=404,
                 detail="Sucursal no encontrada",

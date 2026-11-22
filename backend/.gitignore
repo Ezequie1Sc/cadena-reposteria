@@ -1,7 +1,10 @@
+# ==========================================
 # Private configuration and credentials
+# ==========================================
 .env
 .env.*
 !.env.example
+
 *.pem
 *.key
 *.p12
@@ -9,11 +12,18 @@
 *credentials*.json
 *service-account*.json
 secrets/
-# Local environments and generated files
+
+# ==========================================
+# Virtual environments
+# ==========================================
 .venv/
 .venv*/
 venv/
 env/
+
+# ==========================================
+# Python caches and tooling
+# ==========================================
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -21,6 +31,10 @@ __pycache__/
 .ruff_cache/
 .coverage*
 htmlcov/
+
+# ==========================================
+# Generated files
+# ==========================================
 *.log
 *.tmp
 *.sqlite*
@@ -28,16 +42,17 @@ htmlcov/
 dist/
 build/
 
-# Generated test reports and evidence
+# ==========================================
+# Local documentation (backend root only)
+# ==========================================
+/*.md
+
+
+/*.csv
+
+# ==========================================
+# Generated test reports
+# ==========================================
 pytest-results.xml
 docs/implementation/evidence/
 docs/security/evidence/
-# Local backend documentation
-/*.md
-!/README.md
-
-# Local CSV reports
-/*.csv
-
-# Generated test reports
-pytest-results.xml

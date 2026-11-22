@@ -1,0 +1,178 @@
+<dialog
+  #dialog
+  class="commerce-dialog"
+  aria-labelledby="commerce-dialog-title"
+  (cancel)="cancel($event)"
+>
+  <header>
+    <p class="eyebrow">{{ row() ? nameOf(row()!, resource()) : 'Pedidos de sucursal' }}</p>
+    <h2 id="commerce-dialog-title">{{ task().title }}</h2>
+  </header>
+  <p class="muted">{{ task().consequence }}</p>
+  @if (row()?.total || row()?.monto) {
+    <div class="summary-total">
+      <span>Importe de la operación</span
+      ><strong>{{ amount(row()?.total || row()?.monto) }} MXN</strong>
+    </div>
+  }
+  @if (error()) {
+    <p role="alert" class="alert-error">{{ error() }}</p>
+  }
+  @if (!ready()) {
+    @if (!error()) {
+      <dg-skeleton shape="detail" />
+    }
+    <div class="actions">
+      <button class="btn" (click)="cancel()">Cerrar</button>
+      @if (error()) {
+        <button class="btn btn-primary" (click)="prepare()">Reintentar</button>
+      }
+    </div>
+  } @else if (!confirm()) {
+    <form #form (submit)="$event.preventDefault(); review(form)" ngNativeValidate>
+      <div class="form-grid">
+        @for (field of fields(); track field.name) {
+          @if (field.type === 'checkbox') {
+            <label class="check-field"
+              ><input
+                type="checkbox"
+                required
+                [name]="field.name"
+                [attr.name]="field.name"
+                [(ngModel)]="values[field.name]"
+              />{{ field.label }}</label
+            >
+          } @else {
+            <label class="field"
+              >{{ field.label }}
+              @if (field.name === 'sucursal_id') {
+                <select
+                  [name]="field.name"
+                  [attr.name]="field.name"
+                  required
+                  [(ngModel)]="values[field.name]"
+                >
+                  <option value="">Seleccionar sucursal</option>
+                  @for (option of branches(); track option.id) {
+                    <option [value]="option.id">{{ option.nombre }}</option>
+                  }
+                </select>
+              } @else if (field.type === 'select') {
+                <select
+                  [name]="field.name"
+                  [attr.name]="field.name"
+                  required
+                  [(ngModel)]="values[field.name]"
+                >
+                  <option value="">Seleccionar</option>
+                  @for (option of field.choices; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              } @else if (field.type === 'textarea') {
+                <textarea
+                  [name]="field.name"
+                  [attr.name]="field.name"
+                  rows="3"
+                  [required]="!field.optional"
+                  [attr.minlength]="field.min"
+                  [attr.maxlength]="field.max"
+                  [(ngModel)]="values[field.name]"
+                ></textarea>
+              } @else {
+                <input
+                  [name]="field.name"
+                  [attr.name]="field.name"
+                  [type]="field.type || 'text'"
+                  [required]="!field.optional"
+                  [attr.minlength]="field.type !== 'number' ? field.min : null"
+                  [attr.min]="field.type === 'number' ? field.min : null"
+                  [attr.maxlength]="field.max"
+                  [attr.pattern]="field.pattern"
+                  [(ngModel)]="values[field.name]"
+                />
+              }
+            </label>
+          }
+        }
+      </div>
+      @if (task().action === 'crear-pedido') {
+        <fieldset class="order-lines">
+          <legend>Productos del pedido</legend>
+          <label class="field"
+            >Producto<select name="producto" [(ngModel)]="productId">
+              <option value="">Seleccionar producto</option>
+              @for (p of products(); track p.id) {
+                <option [value]="p.id">{{ p.nombre }} · {{ p.sku }}</option>
+              }
+            </select></label
+          >
+          <label class="field"
+            >Cantidad<input
+              type="number"
+              name="cantidad"
+              min="1"
+              max="2147483647"
+              [(ngModel)]="quantity"
+          /></label>
+          <button type="button" class="btn" (click)="addLine()">Agregar al pedido</button>
+          @for (l of lines(); track l.product.id) {
+            <div class="cart-line">
+              <span>{{ l.product.nombre }} × {{ l.quantity }}</span
+              ><button
+                type="button"
+                class="btn"
+                (click)="removeLine(l.product.id)"
+                [attr.aria-label]="'Quitar ' + l.product.nombre"
+              >
+                Quitar
+              </button>
+            </div>
+          }
+        </fieldset>
+      }
+      <footer class="actions">
+        <button type="button" class="btn" (click)="cancel()">Cancelar</button
+        ><button class="btn btn-primary" type="submit">Revisar operación</button>
+      </footer>
+    </form>
+  } @else {
+    <dl class="facts">
+      @for (f of fields(); track f.name) {
+        @if (values[f.name]) {
+          <div>
+            <dt>{{ f.label }}</dt>
+            <dd>{{ f.type === 'checkbox' ? 'Verificado' : values[f.name] }}</dd>
+          </div>
+        }
+      }
+      @for (l of lines(); track l.product.id) {
+        <div>
+          <dt>{{ l.product.nombre }}</dt>
+          <dd>{{ l.quantity }} unidades</dd>
+        </div>
+      }
+      @if (task().target) {
+        <div>
+          <dt>Nuevo estado</dt>
+          <dd>{{ task().target }}</dd>
+        </div>
+      }
+    </dl>
+    <footer class="actions">
+      <button class="btn" [disabled]="busy()" (click)="cancel()">Cancelar</button
+      ><button class="btn" [disabled]="busy()" (click)="confirm.set(false); error.set('')">
+        Editar
+      </button>
+      <button
+        class="btn"
+        [class.btn-danger]="task().danger"
+        [class.btn-primary]="!task().danger"
+        [disabled]="busy()"
+        (click)="submit()"
+      >
+        {{ busy() ? 'Procesando…' : 'Confirmar' }}
+      </button>
+    </footer>
+  }
+</dialog>

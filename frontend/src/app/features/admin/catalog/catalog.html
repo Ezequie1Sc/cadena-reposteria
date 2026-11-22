@@ -1,0 +1,236 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Administración</p>
+      <h1>{{ def().title }}</h1>
+      <p class="muted">{{ def().description }}</p>
+    </div>
+    <button class="btn btn-primary" (click)="open('new')" [disabled]="loading() || !!listError()">
+      <dg-icon name="plus" [size]="16" /> {{ def().create }}
+    </button>
+  </header>
+  @if (name() === 'sucursales') {
+    <dg-nearby />
+  }
+  <div class="panel listing">
+    <div class="toolbar">
+      @if (name() !== 'clientes') {
+        <label class="field"
+          >Buscar
+          <input
+            type="search"
+            [maxlength]="100"
+            [ngModel]="query()"
+            (ngModelChange)="filter($event)"
+            [placeholder]="'Buscar en ' + def().title.toLowerCase()"
+        /></label>
+      }
+      <label class="field"
+        >Estado del registro<select
+          [ngModel]="active()"
+          (ngModelChange)="page.set(1); active.set($event)"
+        >
+          <option [ngValue]="true">Activos</option>
+          <option [ngValue]="false">Inactivos</option>
+        </select></label
+      >
+      @if (!loading() && !listError()) {
+        <span class="record-count"
+          >{{ count() }} {{ count() === 1 ? 'registro' : 'registros' }}</span
+        >
+      }
+    </div>
+    @if (loading()) {
+      <dg-skeleton shape="table" />
+    } @else if (listError()) {
+      <div class="state" role="alert">
+        <p>{{ listError() }}</p>
+        <button class="btn" (click)="refresh()">Reintentar</button>
+      </div>
+    } @else if (!visible().length) {
+      <dg-empty
+        [title]="'Sin resultados en ' + def().title.toLowerCase()"
+        description="Cambia el filtro de estado o el término de búsqueda."
+      />
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <caption class="sr">
+            {{
+              def().title
+            }}
+          </caption>
+          <thead>
+            <tr>
+              @for (col of def().columns; track col) {
+                <th scope="col">{{ label(col) }}</th>
+              }
+              <th scope="col">Estado</th>
+              <th scope="col">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of visible(); track row.id) {
+              <tr>
+                @for (col of def().columns; track col; let first = $first) {
+                  <td>
+                    @if (first) {
+                      <button class="record-link" (click)="open('detail', row)">
+                        @if (name() === 'productos' && row['imagen_url']) {
+                          <img
+                            class="catalog-thumb"
+                            [src]="row['imagen_url']"
+                            width="36"
+                            height="36"
+                            loading="lazy"
+                            alt=""
+                          />
+                        }
+                        {{ value(row, col) }}</button
+                      ><small class="record-id">#{{ row.id }}</small>
+                    } @else {
+                      {{ value(row, col) }}
+                    }
+                  </td>
+                }
+                <td>
+                  <span class="badge" [class.off]="!row.activo">{{
+                    row.activo ? 'Activo' : 'Inactivo'
+                  }}</span>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <button
+                      class="link"
+                      (click)="open('edit', row)"
+                      [attr.aria-label]="'Editar ' + nameOf(row)"
+                    >
+                      Editar
+                    </button>
+                    @if (!self(row)) {
+                      <button
+                        class="link"
+                        (click)="changeState(row)"
+                        [attr.aria-label]="
+                          (row.activo ? 'Desactivar ' : 'Reactivar ') + nameOf(row)
+                        "
+                      >
+                        {{ row.activo ? 'Desactivar' : 'Reactivar' }}
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (pages() > 1) {
+        <nav class="pagination" aria-label="Páginas del catálogo">
+          <button class="btn" [disabled]="page() === 1" (click)="page.set(page() - 1)">
+            Anterior</button
+          ><span>{{ page() }} / {{ pages() }}</span
+          ><button class="btn" [disabled]="page() >= pages()" (click)="page.set(page() + 1)">
+            Siguiente
+          </button>
+        </nav>
+      }
+    }
+  </div>
+</section>
+<dialog #sheet aria-labelledby="catalog-dialog-title" (cancel)="$event.preventDefault(); close()">
+  <div class="dialog-head">
+    <div>
+      <p class="eyebrow">{{ def().title }}</p>
+      <h2 id="catalog-dialog-title">
+        {{
+          mode() === 'new'
+            ? def().create
+            : mode() === 'edit'
+              ? 'Editar ' + def().singular
+              : 'Detalle de ' + def().singular
+        }}
+      </h2>
+    </div>
+    <button class="btn" aria-label="Cerrar" [disabled]="saving()" (click)="close()">
+      <dg-icon name="close" [size]="16" />
+    </button>
+  </div>
+  @if (dialogLoading()) {
+    <dg-skeleton shape="detail" />
+  }
+  @if (dialogError()) {
+    <p class="alert-error" role="alert">{{ dialogError() }}</p>
+  }
+  @if (mode() === 'detail') {
+    @if (record(); as row) {
+      @if (name() === 'productos') {
+        <dg-product-photo
+          [id]="row.id"
+          [url]="row['imagen_url']?.toString() || ''"
+          (updated)="setPhoto($event)"
+        />
+      }
+      <dl class="details">
+        @for (key of keys(row); track key) {
+          <div>
+            <dt>{{ label(key) }}</dt>
+            <dd>{{ value(row, key) }}</dd>
+          </div>
+        }
+      </dl>
+      <footer>
+        <button class="btn btn-primary" (click)="open('edit', row)">
+          Editar {{ def().singular }}
+        </button>
+      </footer>
+    }
+  } @else if ((!dialogLoading() && canSave()) || saving()) {
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <div class="form-grid">
+        @for (f of editable(); track f.key) {
+          <label class="field" [class.wide]="f.kind === 'textarea'"
+            >{{ f.label
+            }}{{ f.required && !(mode() === 'edit' && f.kind === 'password') ? ' *' : '' }}
+            @if (f.kind === 'select') {
+              <select [formControlName]="f.key">
+                <option value="">Seleccionar</option>
+                @for (option of options(f); track option.id) {
+                  <option [value]="option.id">{{ option.nombre }}</option>
+                }
+              </select>
+            } @else if (f.kind === 'textarea') {
+              <textarea rows="3" [formControlName]="f.key"></textarea>
+            } @else {
+              <input
+                [type]="f.kind === 'integer' || f.kind === 'decimal' ? 'text' : f.kind || 'text'"
+                [attr.inputmode]="
+                  f.kind === 'integer' ? 'numeric' : f.kind === 'decimal' ? 'decimal' : null
+                "
+                [attr.autocomplete]="f.kind === 'password' ? 'new-password' : 'off'"
+                [attr.max]="f.kind === 'date' ? tomorrowLimit : null"
+                [formControlName]="f.key"
+                [attr.aria-invalid]="invalid(f) ? 'true' : null"
+              />
+            }
+            @if (invalid(f)) {
+              <small class="validation">{{ fieldError(f) }}</small>
+            } @else if (f.kind === 'password') {
+              <small class="muted">{{
+                mode() === 'edit'
+                  ? 'Déjala vacía para conservar la actual.'
+                  : 'De 12 a 128 caracteres.'
+              }}</small>
+            }
+          </label>
+        }
+      </div>
+      <footer>
+        <button type="button" class="btn" [disabled]="saving()" (click)="close()">Cancelar</button
+        ><button type="submit" class="btn btn-primary" [disabled]="!canSave()">
+          {{ saving() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </footer>
+    </form>
+  }
+</dialog>

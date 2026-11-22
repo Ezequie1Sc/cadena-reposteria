@@ -1,0 +1,221 @@
+:host {
+  display: block;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.metric,
+.chart,
+.ranking,
+.operations {
+  border: 1px solid #e4dbd3;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 16px #47342206;
+}
+.metric {
+  display: grid;
+  gap: 11px;
+  padding: clamp(16px, 2vw, 26px);
+  align-content: space-between;
+}
+.metric > span {
+  color: #615249;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.metric strong {
+  font-size: clamp(1.45rem, 2.45vw, 2.6rem);
+  line-height: 1.1;
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.metric a,
+.metric small {
+  font-size: 0.76rem;
+  color: #695b51;
+}
+.metric a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.featured {
+  background: #473328;
+  color: white;
+  border-color: #473328;
+}
+.featured span,
+.featured small {
+  color: #f2e3d6;
+}
+.charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 18px;
+  margin: 20px 0;
+}
+.chart,
+.ranking,
+.operations {
+  padding: clamp(16px, 2vw, 26px);
+}
+h2 {
+  font-size: 1.2rem;
+  letter-spacing: -0.035em;
+  margin: 4px 0 14px;
+}
+.chart-head,
+.axis,
+.ranking li,
+.operations dl {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.chart-head {
+  align-items: start;
+  flex-wrap: wrap;
+}
+.plot {
+  margin: 1.5rem 0 1rem;
+}
+.plot > span,
+.axis {
+  color: #706358;
+  font-size: 0.76rem;
+}
+.plot svg {
+  display: block;
+  width: 100%;
+  height: 168px;
+  margin: 0.5rem 0;
+}
+.ranking ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 294px;
+  overflow: auto;
+}
+.ranking li {
+  justify-content: start;
+  border-top: 1px solid #eee7e1;
+  padding: 0.75rem 0;
+}
+.ranking li strong {
+  margin-left: auto;
+  font-size: 0.88rem;
+}
+.ranking li b {
+  font-size: 0.88rem;
+}
+.ranking li small {
+  display: block;
+  color: #6d625a;
+  font-size: 0.75rem;
+  margin-top: 4px;
+}
+.rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #f5eee8;
+  color: #77583e;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+}
+.empty {
+  display: grid;
+  align-content: center;
+  min-height: 175px;
+  color: #6d625a;
+}
+.empty h3 {
+  color: #43352b;
+  font-size: 0.99rem;
+  margin: 0;
+}
+.empty p {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+.operations dl {
+  flex-wrap: wrap;
+  align-items: start;
+}
+.operations dl > div {
+  flex: 1 1 145px;
+}
+.operations dt {
+  color: #695c53;
+  font-size: 0.84rem;
+}
+.operations dd {
+  font-size: 1.55rem;
+  margin: 0.5rem 0 0;
+  font-weight: 650;
+}
+summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #6c513d;
+  text-decoration: underline;
+}
+.table-wrap {
+  max-height: 250px;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+@media (max-width: 1050px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .charts {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 430px) {
+  .metrics {
+    gap: 8px;
+  }
+  .metric {
+    padding: 13px;
+  }
+  .metric strong {
+    font-size: 1.45rem;
+  }
+  .page-header .field {
+    width: 100%;
+  }
+}
+.featured {
+  background: radial-gradient(ellipse at 100% 0, #815d44, transparent 65%), #443026;
+}
+.metric {
+  position: relative;
+  overflow: hidden;
+}
+.metric a {
+  max-width: max-content;
+}
+.metric:hover {
+  box-shadow: 0 6px 20px #52392012;
+}
+.metric,
+.chart,
+.ranking {
+  transition: box-shadow 0.18s;
+}
+.metric strong {
+  letter-spacing: -0.045em;
+}

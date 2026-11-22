@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+  lightningcss: false
+  sharp: false
+  "@parcel/watcher": false
+  lmdb: false
+  msgpackr-extract: false
