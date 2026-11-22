@@ -1,1 +1,3 @@
-{"apiBaseUrl":"/api"}
+{
+  "apiBaseUrl": "https://cadena-reposteria.onrender.com/api"
+}
