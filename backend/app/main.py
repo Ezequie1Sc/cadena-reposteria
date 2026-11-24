@@ -1,10 +1,15 @@
+
 """Punto de entrada principal de la API."""
+
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.errors import register_error_handlers
+from fastapi.staticfiles import StaticFiles
 
+from app.core.errors import register_error_handlers
 from app.core.config import settings
+
 
 # ============================================================
 # RUTAS GENERALES
@@ -13,6 +18,7 @@ from app.core.config import settings
 from app.api.routes.health import router as health_router
 from app.api.routes.roles import router as roles_router
 from app.api.routes.auth import router as auth_router
+
 
 # ============================================================
 # MÓDULOS DEL SISTEMA
@@ -26,6 +32,26 @@ from app.modules.employees.routes import router as employees_router
 from app.modules.users.routes import router as users_router
 from app.modules.inventory.routes import router as inventory_router
 from app.modules.orders.routes import router as orders_router
+
+import app.db.models as registered_models  # noqa: F401
+
+from app.modules.sales.routes import router as sales_router
+from app.modules.payments.routes import router as payments_router
+from app.modules.tickets.routes import router as tickets_router
+from app.modules.invoices.routes import router as invoices_router
+from app.modules.reports.routes import router as reports_router
+
+from app.modules.orders.customer_routes import (
+    router as orders_customer_routes,
+)
+
+from app.modules.customers.self_routes import (
+    router as customers_self_routes,
+)
+
+from app.modules.branches.proximity_routes import (
+    router as branches_proximity_routes,
+)
 
 
 # ============================================================
@@ -41,24 +67,65 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.debug,
     docs_url="/docs"
-    if settings.docs_enabled and settings.app_env not in {"production", "staging"}
+    if settings.docs_enabled
+    and settings.app_env not in {"production", "staging"}
     else None,
     redoc_url="/redoc"
-    if settings.docs_enabled and settings.app_env not in {"production", "staging"}
+    if settings.docs_enabled
+    and settings.app_env not in {"production", "staging"}
     else None,
     openapi_url="/openapi.json"
-    if settings.docs_enabled and settings.app_env not in {"production", "staging"}
+    if settings.docs_enabled
+    and settings.app_env not in {"production", "staging"}
     else None,
 )
 
 
+# ============================================================
+# MANEJO DE ERRORES Y CORS
+# ============================================================
+
 register_error_handlers(app)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+    ],
+)
+
+
+# ============================================================
+# RECURSOS ESTÁTICOS DE CORREOS
+# ============================================================
+
+EMAIL_ASSETS_DIRECTORY = (
+    Path(__file__).resolve().parent
+    / "static"
+    / "emails"
+    / "png"
+)
+
+app.mount(
+    "/static/emails/png",
+    StaticFiles(
+        directory=str(EMAIL_ASSETS_DIRECTORY),
+        html=False,
+        follow_symlink=False,
+    ),
+    name="email_assets",
 )
 
 
@@ -83,12 +150,48 @@ app.include_router(employees_router)
 app.include_router(users_router)
 app.include_router(inventory_router)
 app.include_router(orders_router)
+app.include_router(sales_router)
+app.include_router(payments_router)
+app.include_router(tickets_router)
+app.include_router(invoices_router)
+app.include_router(reports_router)
+app.include_router(orders_customer_routes)
+app.include_router(customers_self_routes)
+app.include_router(branches_proximity_routes)
+
+
+# ============================================================
+# ADMINISTRACIÓN INTERNA
+# ============================================================
+
+if settings.administracion_habilitada:
+    from app.modules.administracion import (
+        catalog,
+        company,
+        images,
+        imports,
+        onboarding,
+    )
+
+    from app.modules.administracion.upload_limit import (
+        UploadLimit,
+    )
+
+    app.add_middleware(UploadLimit)
+
+    for administrative_router in (
+        catalog.router,
+        company.router,
+        images.router,
+        imports.router,
+        onboarding.router,
+    ):
+        app.include_router(administrative_router)
 
 
 # ============================================================
 # ENDPOINT PRINCIPAL
 # ============================================================
-
 
 @app.get("/", tags=["Inicio"])
 def root():
@@ -98,38 +201,3 @@ def root():
         "message": "Sistema de Gestión de Repostería",
         "status": "ok",
     }
-
-
-import app.db.models as registered_models  # noqa: F401
-from app.modules.sales.routes import router as sales_router
-
-app.include_router(sales_router)
-from app.modules.payments.routes import router as payments_router
-
-app.include_router(payments_router)
-from app.modules.tickets.routes import router as tickets_router
-
-app.include_router(tickets_router)
-from app.modules.invoices.routes import router as invoices_router
-
-app.include_router(invoices_router)
-from app.modules.reports.routes import router as reports_router
-
-app.include_router(reports_router)
-from app.modules.orders.customer_routes import router as orders_customer_routes
-
-app.include_router(orders_customer_routes)
-from app.modules.customers.self_routes import router as customers_self_routes
-
-app.include_router(customers_self_routes)
-from app.modules.branches.proximity_routes import router as branches_proximity_routes
-
-app.include_router(branches_proximity_routes)
-
-# El despliegue activa estas rutas después de instalar la revisión administrativa.
-if settings.administracion_habilitada:
-    from app.modules.administracion import catalog, company, images, imports, onboarding
-    from app.modules.administracion.upload_limit import UploadLimit
-    app.add_middleware(UploadLimit)
-    for administrative_router in (catalog.router, company.router, images.router, imports.router, onboarding.router):
-        app.include_router(administrative_router)
